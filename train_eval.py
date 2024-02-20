@@ -54,10 +54,13 @@ if __name__ == '__main__':
     torch.manual_seed(cfg.RANDOM_SEED)
     np.random.seed(cfg.RANDOM_SEED)
 
-    # Output CSV header
-    header = ['model', 'data', 'p_add', 'p_rm', 'num_tests', 'avg_acc', 'std_dev']
+    # Init output CSV file
     data_name = cfg.DATA.PATH.replace('data/', '')
-    output_data = []
+    csv_path = f'results/{cfg.MODEL.NAME.lower()}_{cfg.MATCHER}_{data_name}_v{cfg.VERSION}.csv'
+    header = ['model', 'data', 'p_add', 'p_rm', 'num_tests', 'avg_acc', 'std_dev']
+    with open(csv_path, 'w') as outfile:
+        csv_writer = csv.DictWriter(outfile, fieldnames=header)
+        csv_writer.writeheader()
 
     # Iterate over data configurations
     p_adds = cfg.DATA.P_ADD
@@ -94,22 +97,18 @@ if __name__ == '__main__':
             std_deviation = np.std(matching_accuracies)
 
             # Save output data
-            output_data.append({'model': cfg.MODEL.NAME,
-                                'data': data_name,
-                                'p_add': p_add,
-                                'p_rm': p_rm,
-                                'num_tests': cfg.DATA.SIZE,
-                                'avg_acc': avg_accuracy,
-                                'std_dev': std_deviation})
+            output_data = [{'model': cfg.MODEL.NAME,
+                           'data': data_name,
+                           'p_add': p_add,
+                           'p_rm': p_rm,
+                           'num_tests': cfg.DATA.SIZE,
+                           'avg_acc': avg_accuracy,
+                           'std_dev': std_deviation}]
 
             print('Average matching accuracy: ', avg_accuracy)
             print('Std deviation: ', std_deviation)
 
-
-    # Write out CSV file
-    csv_path = f'results/{cfg.MODEL.NAME.lower()}_{cfg.MATCHER}_{data_name}_v{cfg.VERSION}.csv'
-    with open(csv_path, 'w') as outfile:
-        csv_writer = csv.DictWriter(outfile, fieldnames=header)
-        csv_writer.writeheader()
-        csv_writer.writerows(output_data)
-
+            # Write result to CSV
+            with open(csv_path, 'a', newline='') as outfile:
+                csv_writer = csv.DictWriter(outfile, fieldnames=header)
+                csv_writer.writerows(output_data)

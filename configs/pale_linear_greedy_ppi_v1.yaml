@@ -4,8 +4,8 @@ DEVICE: cuda
 
 # Dataset
 DATA:
-  SIZE: 1
-  PATH: data/edi3
+  SIZE: 100
+  PATH: data/ppi
   P_ADD:
     - 0.00
     - 0.05
@@ -33,7 +33,7 @@ MODEL:
     OPTIMIZER: Adam
     LR: 0.01
     BATCH_SIZE: 512
-    EPOCHS: 1
+    EPOCHS: 1000
 
   MAPPING:
     NAME: linear
@@ -42,7 +42,7 @@ MODEL:
     OPTIMIZER: Adam
     LR: 0.01
     BATCH_SIZE: 8
-    EPOCHS: 1
+    EPOCHS: 100
 
 MATCHER: greedy
 VERSION: 1

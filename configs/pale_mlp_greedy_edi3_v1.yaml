@@ -33,16 +33,16 @@ MODEL:
     OPTIMIZER: Adam
     LR: 0.01
     BATCH_SIZE: 512
-    EPOCHS: 1
+    EPOCHS: 1000
 
   MAPPING:
-    NAME: linear
+    NAME: mlp
     ACTIVATE_FUNCTION: sigmoid 
 
     OPTIMIZER: Adam
     LR: 0.01
     BATCH_SIZE: 8
-    EPOCHS: 1
+    EPOCHS: 100
 
 MATCHER: greedy
 VERSION: 1

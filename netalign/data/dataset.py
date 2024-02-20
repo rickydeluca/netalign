@@ -184,11 +184,3 @@ if __name__ == '__main__':
 
     first_elem = next(iter(gm_dataset))
     print("First element of the dataset: ", first_elem)
-
-    # DEBUG: test `get_edges`
-    # source_dataset = BaseDataset(data_dir)
-    # print("edges:", source_dataset.get_edges())
-    
-    # DEBUG: test `get_nodes_degrees`
-    source_dataset = BaseDataset(data_dir)
-    print("node_degrees:", source_dataset.get_nodes_degrees())
