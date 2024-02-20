@@ -107,7 +107,7 @@ if __name__ == '__main__':
 
 
     # Write out CSV file
-    csv_path = f'results/{cfg.MODEL.NAME.lower()}_{data_name}_{cfg.MATCHER}_v{cfg.MODEL.VERSION}.csv'
+    csv_path = f'results/{cfg.MODEL.NAME.lower()}_{cfg.MATCHER}_{data_name}_v{cfg.VERSION}.csv'
     with open(csv_path, 'w') as outfile:
         csv_writer = csv.DictWriter(outfile, fieldnames=header)
         csv_writer.writeheader()

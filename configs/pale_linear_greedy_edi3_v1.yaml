@@ -23,7 +23,6 @@ DATA:
 # Model & Training
 MODEL:
   NAME: pale_linear
-  VERSION: 1  # Configuration version
   
   EMBEDDING:
     NAME: pale
@@ -34,7 +33,7 @@ MODEL:
     OPTIMIZER: Adam
     LR: 0.01
     BATCH_SIZE: 512
-    EPOCHS: 1
+    EPOCHS: 1000
 
   MAPPING:
     NAME: linear
@@ -46,3 +45,4 @@ MODEL:
     EPOCHS: 100
 
 MATCHER: greedy
+VERSION: 1
