@@ -1,5 +1,5 @@
-from netalign.models.magna.magna import MAGNA
-from netalign.models.pale.pale import PALE
+from netalign.mapping.magna.magna import MAGNA
+from netalign.mapping.pale.pale import PALE
 
 def align_networks(pair_dict, cfg):
     # Get alignment model

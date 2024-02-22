@@ -4,7 +4,7 @@ DEVICE: cuda
 
 # Dataset parameters
 DATA:
-  SIZE: 1
+  SIZE: 5
   PATH: data/edi3
   P_ADD:
     - 0.00
@@ -23,9 +23,8 @@ DATA:
 MODEL:
   NAME: MAGNA
   MEASURE: S3
-  POPULATION_SIZE: 15000
+  POPULATION_SIZE: 2500
   NUM_GENERATIONS: 2000
-  NUM_THREADS: 8
 
 MATCHER: greedy
 VERSION: 1

@@ -1,0 +1,30 @@
+# Reproducibility and device
+RANDOM_SEED: 42
+DEVICE: cuda
+
+# Dataset parameters
+DATA:
+  SIZE: 5
+  PATH: data/edi3
+  P_ADD:
+    - 0.00
+    - 0.05
+    - 0.10
+    - 0.20
+    - 0.25
+  P_RM:
+    - 0.00
+    - 0.05
+    - 0.10
+    - 0.20
+    - 0.25
+  TRAIN_RATIO: 0.2
+
+MODEL:
+  NAME: MAGNA
+  MEASURE: S3
+  POPULATION_SIZE: 15000
+  NUM_GENERATIONS: 2000
+
+MATCHER: greedy
+VERSION: 1

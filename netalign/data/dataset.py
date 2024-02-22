@@ -2,6 +2,7 @@ from typing import Optional
 
 from easydict import EasyDict as edict
 from torch.utils.data import Dataset
+from torch_geometric.loader import DataLoader
 
 import netalign.data.utils as utils
 
@@ -48,7 +49,6 @@ class SemiSyntheticDataset(Dataset):
             p_rm=self.p_rm
         )
 
-
         # Split alignments in train and test subsets
         train_dict, test_dict = utils.shuffle_and_split(node_mapping,
                                                         split_ratio=self.train_ratio)
@@ -68,8 +68,8 @@ class SemiSyntheticDataset(Dataset):
 if __name__ == '__main__':
     data_dir = 'data/edi3'
     gm_dataset = SemiSyntheticDataset(root_dir=data_dir,
-                                      p_add=0.2,
-                                      p_rm=0.2,
+                                      p_add=0.0,
+                                      p_rm=0.0,
                                       size=100,
                                       train_ratio=0.2)
     
@@ -78,3 +78,7 @@ if __name__ == '__main__':
 
     first_elem = next(iter(gm_dataset))
     print("First element of the dataset: ", first_elem)
+
+    dataloader = DataLoader(gm_dataset, batch_size=1)
+    for elem in dataloader:
+        print(elem)

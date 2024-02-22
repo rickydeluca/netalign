@@ -2,7 +2,6 @@ import json
 import os
 import random
 from itertools import chain
-from typing import List
 
 import networkx as nx
 import numpy as np
@@ -11,8 +10,7 @@ from networkx.readwrite import json_graph
 from torch_geometric.transforms import ToUndirected
 from torch_geometric.utils import (add_random_edge, contains_self_loops,
                                    dropout_edge, is_undirected,
-                                   remove_self_loops, shuffle_node,
-                                   to_undirected)
+                                   remove_self_loops)
 from torch_geometric.utils.convert import from_networkx
 
 
@@ -139,6 +137,11 @@ def edgelist_to_pyg(dir, seed=42):
     # Make it undirected
     pyg_graph = ToUndirected()(pyg_graph)
 
+    # Remove self loops
+    if contains_self_loops(pyg_graph.edge_index):
+        pyg_graph.edge_index, pyg_graph.edge_attr = remove_self_loops(pyg_graph.edge_index,
+                                                                      pyg_graph.edge_attr)
+
     return pyg_graph
 
 
@@ -180,54 +183,13 @@ def generate_random_synth_clone(pyg_source, p_rm=0.0, p_add=0.0):
     new_attr = pyg_target.edge_attr[sample_indices]
     pyg_target.edge_attr = torch.cat((old_attr, new_attr), dim=0)
 
+    # Remove any evantual self loop
+    if contains_self_loops(pyg_target.edge_index):
+        pyg_target.edge_index, pyg_target.edge_attr = remove_self_loops(pyg_target.edge_index,
+                                                                        pyg_target.edge_attr)
+
     return pyg_target, node_mapping
     
-
-'''
-def to_pyg_graph(G,
-                id2idx: dict,
-                node_feats: torch.Tensor=None,
-                edge_feats: torch.Tensor=None,
-                node_metrics: List[str]=[],
-                edge_metrics: List[str]=[]):
-    
-    # Assign existing features.
-    if node_feats is not None:
-        for n in G.nodes:
-            G.nodes[n]['features'] = torch.Tensor(node_feats[id2idx[n]])
-    
-    if edge_feats is not None:
-        for e, f in zip(G.edges, edge_feats):
-            G.edges[e]['features'] = torch.Tensor(f)
-            
-    # Explicit edge weight to 1 if unweighted.
-    if not nx.is_weighted(G):
-        nx.set_edge_attributes(G, 1, name='weight')
-    
-    
-    # Get the list of node/edge attribute names.
-    node_attrs_list = set(chain.from_iterable(d.keys() for *_, d in G.nodes(data=True))) - set(['val', 'test'])
-    edge_attrs_list = set(chain.from_iterable(d.keys() for *_, d in G.edges(data=True)))
-    
-    # Convert to pyg
-    pyg_graph = from_networkx(G,
-                              group_node_attrs=node_attrs_list,
-                              group_edge_attrs=edge_attrs_list)
-    
-    
-    # Set default node importance to 1 if not present yet
-    if 'x_importance' not in pyg_graph:
-        pyg_graph.x_importance = torch.ones([pyg_graph.num_nodes, 1])
-        
-    # Make it undirected and remove self loops
-    if not nx.is_directed(G) and not is_undirected(pyg_graph.edge_index):
-        pyg_graph.edge_index, pyg_graph.edge_attr = to_undirected(pyg_graph.edge_index, pyg_graph.edge_attr)
-    if contains_self_loops(pyg_graph.edge_index):
-        pyg_graph.edge_index, pyg_graph.edge_attr = remove_self_loops(pyg_graph.edge_index, pyg_graph.edge_attr)
-                
-    
-    return pyg_graph
-'''
 
 def train_test_split(matrix, split_ratio=0.2):
     """
@@ -285,7 +247,7 @@ def shuffle_and_split(dictionary, split_ratio, seed=42):
     split_items_2 = items[split_index:]
 
     # Convert the split lists back to dictionaries
-    split_dict_1 = dict(split_items_1)
-    split_dict_2 = dict(split_items_2)
+    split_dict_1 = {k: torch.tensor(v).item() for k, v in split_items_1}
+    split_dict_2 = {k: torch.tensor(v).item() for k, v in split_items_2}
 
     return split_dict_1, split_dict_2

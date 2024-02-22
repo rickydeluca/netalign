@@ -1,5 +1,6 @@
 import argparse
 import csv
+import time
 
 import numpy as np
 import torch
@@ -57,7 +58,7 @@ if __name__ == '__main__':
     # Init output CSV file
     data_name = cfg.DATA.PATH.replace('data/', '')
     csv_path = f'results/{cfg.MODEL.NAME.lower()}_{cfg.MATCHER}_{data_name}_v{cfg.VERSION}.csv'
-    header = ['model', 'data', 'p_add', 'p_rm', 'num_tests', 'avg_acc', 'std_dev']
+    header = ['model', 'data', 'p_add', 'p_rm', 'num_tests', 'avg_acc', 'std_dev', 'avg_time']
     with open(csv_path, 'w') as outfile:
         csv_writer = csv.DictWriter(outfile, fieldnames=header)
         csv_writer.writeheader()
@@ -80,10 +81,15 @@ if __name__ == '__main__':
 
             # --- Train & Evaluate ---
             matching_accuracies = []
+            comp_times = []
             for i, pair_dict in enumerate(dataloader):
+                start_time = time.time()
                 
                 alignment_matrix = align_networks(pair_dict, cfg)
-
+                
+                
+                end_time = time.time() - start_time
+                
                 acc = compute_accuracy(alignment_matrix,
                                        pair_dict['test_dict'],
                                        matcher=cfg.MATCHER)
@@ -91,6 +97,10 @@ if __name__ == '__main__':
                 print(f"Pair {i}, accuracy: ", acc.item())
                 
                 matching_accuracies.append(acc.item())
+                comp_times.append(end_time - start_time)
+
+            # Average computation time
+            avg_time = np.mean(comp_times)
 
             # Average accuracy and std deviation
             avg_accuracy = np.mean(matching_accuracies)
@@ -103,7 +113,8 @@ if __name__ == '__main__':
                            'p_rm': p_rm,
                            'num_tests': cfg.DATA.SIZE,
                            'avg_acc': avg_accuracy,
-                           'std_dev': std_deviation}]
+                           'std_dev': std_deviation,
+                           'avg_time': avg_time}]
 
             print('Average matching accuracy: ', avg_accuracy)
             print('Std deviation: ', std_deviation)
