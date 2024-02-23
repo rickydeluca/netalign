@@ -4,7 +4,7 @@ DEVICE: cuda
 
 # Dataset
 DATA:
-  SIZE: 5
+  SIZE: 10
   PATH: data/edi3
   P_ADD:
     - 0.00

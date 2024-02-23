@@ -1,8 +1,11 @@
 from typing import Optional
 
+import networkx as nx
 from easydict import EasyDict as edict
 from torch.utils.data import Dataset
 from torch_geometric.loader import DataLoader
+from torch_geometric.utils import to_networkx
+import matplotlib.pyplot as plt
 
 import netalign.data.utils as utils
 
@@ -30,10 +33,8 @@ class SemiSyntheticDataset(Dataset):
     def __len__(self):
         return self.size
 
-
     def __getitem__(self, idx):
         return self.get_pair(idx)
-
 
     def get_pair(self, idx):
         """
@@ -43,7 +44,7 @@ class SemiSyntheticDataset(Dataset):
         """
         
         # Generate random semi-synthetic pyg target graph
-        target_pyg, node_mapping = utils.generate_random_synth_clone(
+        target_pyg, node_mapping = utils.generate_target_graph(
             self.source_pyg,
             p_add=self.p_add,
             p_rm=self.p_rm
@@ -64,11 +65,11 @@ class SemiSyntheticDataset(Dataset):
         return pair_dict
     
 
-# --- Test dataset ---     
 if __name__ == '__main__':
-    data_dir = 'data/edi3'
+    # Test Dataset
+    data_dir = 'data/ppi'
     gm_dataset = SemiSyntheticDataset(root_dir=data_dir,
-                                      p_add=0.0,
+                                      p_add=0.5,
                                       p_rm=0.0,
                                       size=100,
                                       train_ratio=0.2)
@@ -78,7 +79,3 @@ if __name__ == '__main__':
 
     first_elem = next(iter(gm_dataset))
     print("First element of the dataset: ", first_elem)
-
-    dataloader = DataLoader(gm_dataset, batch_size=1)
-    for elem in dataloader:
-        print(elem)

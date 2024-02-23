@@ -10,7 +10,7 @@ from torch_geometric.loader import DataLoader
 
 from align import align_networks
 from netalign.data.dataset import SemiSyntheticDataset
-from netalign.evaluation.metrics import compute_accuracy
+from netalign.evaluation.metrics import compute_accuracy, dict_to_perm_mat
 
 
 def parse_args():
@@ -83,14 +83,21 @@ if __name__ == '__main__':
             matching_accuracies = []
             comp_times = []
             for i, pair_dict in enumerate(dataloader):
+                # Get alignment matrix
                 start_time = time.time()
-                
                 alignment_matrix = align_networks(pair_dict, cfg, device=device)
-                
                 end_time = time.time()
+               
+                # Get groundtruth permutation matrix
+                num_source_nodes = pair_dict['graph_pair'][0].num_nodes
+                num_target_nodes = pair_dict['graph_pair'][0].num_nodes
+                groundtruth = dict_to_perm_mat(pair_dict['test_dict'],
+                                               n_sources=num_source_nodes,
+                                               n_targets=num_target_nodes)
+                
                 
                 acc = compute_accuracy(alignment_matrix,
-                                       pair_dict['test_dict'],
+                                       groundtruth,
                                        matcher=cfg.MATCHER)
                 
                 print(f"Pair {i}, accuracy: ", acc.item())
