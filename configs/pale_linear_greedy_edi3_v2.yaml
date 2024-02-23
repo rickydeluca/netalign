@@ -18,7 +18,7 @@ DATA:
     - 0.10
     - 0.20
     - 0.25
-  TRAIN_RATIO: 0.2
+  TRAIN_RATIO: 0.8
 
 # Model & Training
 MODEL:
@@ -45,4 +45,4 @@ MODEL:
     EPOCHS: 100
 
 MATCHER: greedy
-VERSION: 1
+VERSION: 2

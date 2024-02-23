@@ -85,10 +85,9 @@ if __name__ == '__main__':
             for i, pair_dict in enumerate(dataloader):
                 start_time = time.time()
                 
-                alignment_matrix = align_networks(pair_dict, cfg)
+                alignment_matrix = align_networks(pair_dict, cfg, device=device)
                 
-                
-                end_time = time.time() - start_time
+                end_time = time.time()
                 
                 acc = compute_accuracy(alignment_matrix,
                                        pair_dict['test_dict'],
