@@ -1,0 +1,48 @@
+# Reproducibility and device
+RANDOM_SEED: 42
+DEVICE: cuda
+
+# Dataset
+DATA:
+  SIZE: 10
+  PATH: data/edi3
+  P_ADD:
+    - 0.00
+    - 0.05
+    - 0.10
+    - 0.20
+    - 0.25
+  P_RM:
+    - 0.00
+    - 0.05
+    - 0.10
+    - 0.20
+    - 0.25
+  TRAIN_RATIO: 0.2
+
+# Model & Training
+MODEL:
+  NAME: pale_mlp
+  
+  EMBEDDING:
+    NAME: pale
+    NEG_SAMPLE_SIZE: 10 
+    EMBEDDING_DIM: 300
+    EMBEDDING_NAME: ''
+
+    OPTIMIZER: Adam
+    LR: 0.01
+    BATCH_SIZE: 512
+    EPOCHS: 1000
+
+  MAPPING:
+    NAME: mlp
+    ACTIVATE_FUNCTION: sigmoid 
+
+    OPTIMIZER: Adam
+    LR: 0.01
+    BATCH_SIZE: 8
+    EPOCHS: 100
+
+MATCHER: greedy
+VERSION: 1
