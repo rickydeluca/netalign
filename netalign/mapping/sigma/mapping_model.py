@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from function import reward_general
-import gumbel_sinkhorn_ops as gs
+
+import netalign.mapping.sigma.gumbel_sinkhorn_ops as gs
+from netalign.mapping.sigma.function import reward_general
 
 
 class SigmaMapping(nn.Module):
@@ -25,7 +26,7 @@ class SigmaMapping(nn.Module):
 
         theta_previous = None
         for _ in range(T):
-            # adjust feature importance
+            # Adjust feature importance
             if theta_previous is not None:
                 x_s_importance = theta_previous.sum(-1, keepdims=True)
                 x_t_importance = theta_previous.sum(-2, keepdims=True).transpose(-1, -2)
@@ -33,11 +34,11 @@ class SigmaMapping(nn.Module):
                 x_s_importance = torch.ones([n_node_s, 1]).to(x_s.device)
                 x_t_importance = torch.ones([n_node_t, 1]).to(x_s.device)
 
-            # propagate
+            # Propagate
             h_s = self.f_update(x_s, x_s_importance, edge_index_s)
             h_t = self.f_update(x_t, x_t_importance, edge_index_t)
 
-            # an alternative to the dot product similarity is the cosine similarity.
+            # An alternative to the dot product similarity is the cosine similarity.
             # scale 50.0 allows logits to be larger than the noise.
             h_s = h_s / h_s.norm(dim=-1, keepdim=True)
             h_t = h_t / h_t.norm(dim=-1, keepdim=True)

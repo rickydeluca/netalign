@@ -45,12 +45,6 @@ if __name__ == '__main__':
     args = parse_args()
     cfg = read_config_file(args.config)
 
-    # Set default device
-    if cfg.DEVICE == 'cuda':
-        device = torch.device('cuda:0')
-    else:
-        device = torch.device('cpu')
-
     # Reproducibility
     torch.manual_seed(cfg.RANDOM_SEED)
     np.random.seed(cfg.RANDOM_SEED)
@@ -85,7 +79,7 @@ if __name__ == '__main__':
             for i, pair_dict in enumerate(dataloader):
                 # Get alignment matrix
                 start_time = time.time()
-                alignment_matrix = align_networks(pair_dict, cfg, device=device)
+                alignment_matrix = align_networks(pair_dict, cfg)
                 end_time = time.time()
                
                 # Get groundtruth permutation matrix
