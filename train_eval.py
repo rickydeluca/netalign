@@ -10,7 +10,8 @@ from torch_geometric.loader import DataLoader
 
 from align import align_networks
 from netalign.data.dataset import SemiSyntheticDataset
-from netalign.evaluation.metrics import compute_accuracy, dict_to_perm_mat
+from netalign.evaluation.metrics import compute_accuracy
+from netalign.evaluation.dict_to_mat import dict_to_perm_mat
 
 
 def parse_args():

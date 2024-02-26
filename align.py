@@ -2,6 +2,7 @@ from netalign.models.magna.magna import MAGNA
 from netalign.models.pale.pale import PALE
 from netalign.models.sigma.sigma import SIGMA
 from netalign.models.stablegm.stablegm import StableGM
+from netalign.models.ar.ar import AR
 
 
 def align_networks(pair_dict, cfg):
@@ -15,6 +16,8 @@ def align_networks(pair_dict, cfg):
         model = SIGMA(cfg)
     elif 'stablegm' in cfg.MODEL.NAME.lower():
         model = StableGM(cfg)
+    elif 'ar' in cfg.MODEL.NAME.lower():
+        model = AR(cfg)
     else:
         raise ValueError(f'Invalid alignment model: {cfg.MODEL.NAME}.')
     

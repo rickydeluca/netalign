@@ -1,0 +1,37 @@
+# Reproducibility and device
+RANDOM_SEED: 42
+DEVICE: cuda
+
+# Dataset
+DATA:
+  SIZE: 10
+  PATH: data/edi3
+  P_ADD:
+    - 0.00
+    - 0.05
+    - 0.10
+    - 0.20
+    - 0.25
+  P_RM:
+    - 0.00
+    - 0.05
+    - 0.10
+    - 0.20
+    - 0.25
+  TRAIN_RATIO: 0.8
+
+# Model & Training
+MODEL:
+  NAME: ar
+  IN_CHANNELS: 32
+  HIDDEN_CHANNELS: 128
+  OUT_CHANNELS: 32
+  NUM_LAYERS: 2
+
+TRAIN:
+  LR: 1.e-4
+  L2NORM: 1.e-4
+  EPOCHS: 100
+
+MATCHER: greedy
+VERSION: 2

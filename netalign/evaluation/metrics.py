@@ -1,13 +1,6 @@
 import numpy as np
-from netalign.evaluation.greedy_match import greedy_match
 
-def dict_to_perm_mat(gt_dict, n_sources, n_targets):
-    gt_mat = np.zeros((n_sources, n_targets))
-    
-    for s, t in gt_dict.items():
-        gt_mat[s, t] = 1  
-    
-    return gt_mat
+from netalign.evaluation.greedy_match import greedy_match
 
 
 def compute_accuracy(alignment_matrix, gt_mat, matcher='greedy'):
