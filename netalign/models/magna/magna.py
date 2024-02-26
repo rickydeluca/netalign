@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 import torch.nn as nn
-from netalign.mapping.magna.utils import read_align_dict, pyg_to_edgelist
+from netalign.models.magna.utils import read_align_dict, pyg_to_edgelist
 
 
 class MAGNA(nn.Module):

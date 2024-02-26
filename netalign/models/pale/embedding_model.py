@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from netalign.mapping.pale.loss import EmbeddingLossFunctions
+from netalign.models.pale.loss import EmbeddingLossFunctions
 
 
 def fixed_unigram_candidate_sampler(num_sampled, unique, range_max, distortion, unigrams):

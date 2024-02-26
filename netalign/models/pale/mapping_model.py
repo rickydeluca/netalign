@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
-from netalign.mapping.pale.loss import MappingLossFunctions
+from netalign.models.pale.loss import MappingLossFunctions
 
 
 class PaleMapping(nn.Module):

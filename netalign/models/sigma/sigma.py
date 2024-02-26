@@ -2,9 +2,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from netalign.mapping.sigma.function import predict
-from netalign.mapping.sigma.gnns import GIN
-from netalign.mapping.sigma.mapping_model import SigmaMapping
+from netalign.models.sigma.function import predict
+from netalign.models.sigma.gnns import GIN
+from netalign.models.sigma.mapping_model import SigmaMapping
 
 from torch_geometric.utils import to_dense_adj
 

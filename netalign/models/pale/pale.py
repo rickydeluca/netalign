@@ -6,8 +6,8 @@ import torch
 import torch.nn as nn
 import torch_geometric
 
-from netalign.mapping.pale.embedding_model import PaleEmbedding
-from netalign.mapping.pale.mapping_model import (PaleMappingLinear,
+from netalign.models.pale.embedding_model import PaleEmbedding
+from netalign.models.pale.mapping_model import (PaleMappingLinear,
                                                 PaleMappingMlp)
 
 

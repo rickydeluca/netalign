@@ -1,7 +1,7 @@
-from netalign.mapping.magna.magna import MAGNA
-from netalign.mapping.pale.pale import PALE
-from netalign.mapping.sigma.sigma import SIGMA
-from netalign.mapping.stablegm.stablegm import StableGM
+from netalign.models.magna.magna import MAGNA
+from netalign.models.pale.pale import PALE
+from netalign.models.sigma.sigma import SIGMA
+from netalign.models.stablegm.stablegm import StableGM
 
 
 def align_networks(pair_dict, cfg):

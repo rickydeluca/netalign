@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import netalign.mapping.sigma.gumbel_sinkhorn_ops as gs
-from netalign.mapping.sigma.function import reward_general
+import netalign.models.sigma.gumbel_sinkhorn_ops as gs
+from netalign.models.sigma.function import reward_general
 
 
 class SigmaMapping(nn.Module):
