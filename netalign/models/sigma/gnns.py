@@ -21,17 +21,17 @@ class GIN(torch.nn.Module):
         self.conv2 = GINConv(self.nn2, eps=eps, train_eps=train_eps)
         self.bn2 = torch.nn.BatchNorm1d(dim)
 
-        # self.nn3 = Sequential(Linear(dim, dim, bias=bias), act)
-        # self.conv3 = GINConv(self.nn3, eps=eps, train_eps=train_eps)
-        # self.bn3 = torch.nn.BatchNorm1d(dim)
+        self.nn3 = Sequential(Linear(dim, dim, bias=bias), act)
+        self.conv3 = GINConv(self.nn3, eps=eps, train_eps=train_eps)
+        self.bn3 = torch.nn.BatchNorm1d(dim)
 
-        # self.nn4 = Sequential(Linear(dim, dim, bias=bias), act)
-        # self.conv4 = GINConv(self.nn4, eps=eps, train_eps=train_eps)
-        # self.bn4 = torch.nn.BatchNorm1d(dim)
+        self.nn4 = Sequential(Linear(dim, dim, bias=bias), act)
+        self.conv4 = GINConv(self.nn4, eps=eps, train_eps=train_eps)
+        self.bn4 = torch.nn.BatchNorm1d(dim)
 
-        # self.nn5 = Sequential(Linear(dim, dim, bias=bias), act)
-        # self.conv5 = GINConv(self.nn5, eps=eps, train_eps=train_eps)
-        # self.bn5 = torch.nn.BatchNorm1d(dim)
+        self.nn5 = Sequential(Linear(dim, dim, bias=bias), act)
+        self.conv5 = GINConv(self.nn5, eps=eps, train_eps=train_eps)
+        self.bn5 = torch.nn.BatchNorm1d(dim)
 
         self.fc1 = Linear(dim, out_channels, bias=False)
 
@@ -41,9 +41,9 @@ class GIN(torch.nn.Module):
 
         xs.append(self.conv1(xs[-1], edge_index))
         xs.append(self.conv2(xs[-1], edge_index))
-        # xs.append(self.conv3(xs[-1], edge_index))
-        # xs.append(self.conv4(xs[-1], edge_index))
-        # xs.append(self.conv5(xs[-1], edge_index))
+        xs.append(self.conv3(xs[-1], edge_index))
+        xs.append(self.conv4(xs[-1], edge_index))
+        xs.append(self.conv5(xs[-1], edge_index))
         xs.append(torch.tanh(self.fc1(xs[-1])))
 
         x = torch.cat(xs[1:], dim=-1)

@@ -2,6 +2,9 @@
 RANDOM_SEED: 42
 DEVICE: cuda
 
+MATCHER: greedy
+VERSION: 4
+
 # Dataset
 DATA:
   SIZE: 10
@@ -18,20 +21,23 @@ DATA:
     - 0.10
     - 0.20
     - 0.25
-  TRAIN_RATIO: 0.8
+  TRAIN_RATIO: 0.2
 
 # Model & Training
 MODEL:
-  NAME: ar
-  IN_CHANNELS: 32
-  HIDDEN_CHANNELS: 128
-  OUT_CHANNELS: 32
+  NAME: ar_gcn_linear
+  NODE_FEATURE_INIT: share
+  NODE_FEATURE_DIM: 1
+  HIDDEN_DIM: 64
+  EMBEDDING_DIM: 32
   NUM_LAYERS: 2
 
 TRAIN:
-  LR: 1.e-4
-  L2NORM: 1.e-4
-  EPOCHS: 100
-
-MATCHER: greedy
-VERSION: 2
+  EMBEDDING:
+    LR: 1.e-4
+    L2NORM: 0
+    EPOCHS: 1000
+  MAPPING:
+    LR: 0.01
+    L2NORM: 0
+    EPOCHS: 100

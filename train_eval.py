@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     # Init output CSV file
     data_name = cfg.DATA.PATH.replace('data/', '')
-    csv_path = f'results/{cfg.MODEL.NAME.lower()}_{cfg.MATCHER}_{data_name}_v{cfg.VERSION}.csv'
+    csv_path = f'results/{cfg.MODEL.NAME.lower()}_{data_name}_tr{cfg.DATA.TRAIN_RATIO}_v{cfg.VERSION}.csv'
     header = ['model', 'data', 'p_add', 'p_rm', 'num_tests', 'avg_acc', 'std_dev', 'avg_time']
     with open(csv_path, 'w') as outfile:
         csv_writer = csv.DictWriter(outfile, fieldnames=header)
