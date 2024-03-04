@@ -43,7 +43,41 @@ class GINE(nn.Module):
         # Linear
         xs.append(torch.tanh(self.fc(xs[-1])))
 
-        # x = torch.cat(xs[1:], dim=-1)
-        x = xs[-1]
+        x = torch.cat(xs[1:], dim=-1)
         
         return x
+    
+
+class GINEMapping(nn.Module):
+    def __init__(self, in_channels, out_channels, dim, num_conv_layers=2, bias=True,
+                 loss_fn=None, source_graph=None, taregt_graph=None):
+        super(GINEMapping, self).__init__()
+
+        self.loss_fn = loss_fn
+        self.source_graph = source_graph
+        self.target_graph = taregt_graph
+        self.gcn = GINE(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            dim=dim,
+            num_conv_layers=num_conv_layers,
+            bias=bias)
+        
+    def loss(self, source_batch, target_batch):
+        hs = self.forward(x=self.source_graph.x,
+                          edge_index=self.source_graph.edge_index,
+                          edge_attr=self.source_graph.edge_attr)[source_batch]
+        
+        ht = self.forward(x=self.target_graph.x,
+                          edge_index=self.target_graph.edge_index,
+                          edge_attr=self.target_graph.edge_attr)[target_batch]
+        
+
+        batch_size = hs.shape[0]
+        mapping_loss = self.loss_fn(hs, ht, source_batch, target_batch) / batch_size
+
+        return mapping_loss
+    
+    
+    def forward(self, x, edge_index, edge_attr):
+        return self.gcn(x, edge_index, edge_attr)

@@ -4,22 +4,28 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def fixed_unigram_candidate_sampler(num_sampled, unique, range_max, distortion, unigrams):
+"""def fixed_unigram_candidate_sampler(num_sampled, unique, range_max, distortion, unigrams):
     weights = unigrams**distortion
     prob = weights/weights.sum()
     sampled = np.random.choice(range_max, num_sampled, p=prob, replace=~unique)
+    return sampled"""
+
+def fixed_unigram_candidate_sampler(num_sampled, unique, distortion, unigrams):
+    weights = unigrams.pow(distortion)
+    prob = weights/weights.sum()
+    sampled = torch.multinomial(prob, num_samples=num_sampled, replacement=not unique)
     return sampled
 
 
 class PaleEmbedding(nn.Module):
-    def __init__(self, n_nodes, embedding_dim, deg, neg_sample_size): #, cuda):
+    def __init__(self, n_nodes, embedding_dim, deg, neg_sample_size, cuda):
         super(PaleEmbedding, self).__init__()
         self.node_embedding = nn.Embedding(n_nodes, embedding_dim)
         self.deg = deg
         self.neg_sample_size = neg_sample_size
         self.link_pred_layer = EmbeddingLossFunctions()
         self.n_nodes = n_nodes
-        # self.use_cuda = cuda
+        self.use_cuda = cuda
 
 
     def loss(self, nodes, neighbor_nodes):
@@ -41,18 +47,14 @@ class PaleEmbedding(nn.Module):
             neg = fixed_unigram_candidate_sampler(
                 num_sampled=self.neg_sample_size,
                 unique=False,
-                range_max=len(self.deg),
                 distortion=0.75,
                 unigrams=self.deg
-                )
+            )
 
-            neg = torch.LongTensor(neg)
-            
-            # if self.use_cuda:
-            #     neg = neg.cuda()
             neighbor_output = self.node_embedding(neighbor_nodes)
             neg_output = self.node_embedding(neg)
-            # normalize
+
+            # Normalize
             neighbor_output = F.normalize(neighbor_output, dim=1)
             neg_output = F.normalize(neg_output, dim=1)
 
@@ -61,10 +63,10 @@ class PaleEmbedding(nn.Module):
         return node_output
 
     def get_embedding(self):
-        nodes = np.arange(self.n_nodes)
-        nodes = torch.LongTensor(nodes)
-        # if self.use_cuda:
-        #     nodes = nodes.cuda()
+        nodes = torch.arange(self.n_nodes, dtype=torch.long)
+        if self.use_cuda:
+            nodes = nodes.cuda()
+
         embedding = None
         BATCH_SIZE = 512
         for i in range(0, self.n_nodes, BATCH_SIZE):

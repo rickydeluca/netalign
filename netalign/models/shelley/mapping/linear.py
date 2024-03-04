@@ -1,25 +1,31 @@
 import torch.nn as nn
+import torch.nn.functional as F
 
-class BaseMapping(nn.Module):
+
+class LinearMapping(nn.Module):
     """
     Class for a base mapping model that refine the input features
-    using a GNN and align them using the groundtruth aligmnets.
+    using a linear layer and align them using the groundtruth aligmnets.
     """
-    def __init__(self, gnn, source_graph, target_graph, gt_aligns, loss_fn):
-        super(BaseMapping, self).__init__()
-        self.gnn = gnn
-        self.source_graph = source_graph
-        self.target_graph = target_graph
-        self.gt_aligns = gt_aligns
+    def __init__(self, source_embeddings, target_embeddings, loss_fn, embedding_dim=256, bias=True):
+        super(LinearMapping, self).__init__()
+        self.source_embeddings = source_embeddings
+        self.target_embeddings = target_embeddings
         self.loss_fn = loss_fn
+        self.maps = nn.Linear(embedding_dim, embedding_dim, bias=bias)
 
-    def forward(self, source_batch, target_batch):
-        # Refine source and target embeddings
-        h_src = self.gnn(x=self.source_graph.x,
-                         edge_index=self.source_graph.edge_index,
-                         edge_attr=self.source_graph.edge_attr)
-        h_tgt = self.gnn(x=self.target_graph.x,
-                         edge_index=self.target_graph.edge_index,
-                         edge_attr=self.target_graph.edge_attr)
+    def loss(self, source_batch, target_batch):
+        source_feats = self.source_embeddings[source_batch]
+        target_feats = self.target_embeddings[target_batch]
+
+        source_feats_after_mapping = self.forward(source_feats)
+
+        batch_size = source_feats.shape[0]
+        mapping_loss = self.loss_fn(source_feats_after_mapping, target_feats, source_batch, target_batch) / batch_size
         
-        return h_src, h_tgt
+        return mapping_loss
+
+    def forward(self, source_feats):
+        ret = self.maps(source_feats)
+        ret = F.normalize(ret, dim=1)
+        return ret

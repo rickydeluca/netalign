@@ -8,6 +8,5 @@ class DegreeEmbedding(nn.Module):
         self.node_feature_dim = node_feature_dim
 
     def forward(self, graph):
-            return degree(graph.edge_index[0],
-                          num_nodes=graph.num_nodes).unsqueeze(1)
+        return degree(graph.edge_index[0], num_nodes=graph.num_nodes).unsqueeze(1)
             

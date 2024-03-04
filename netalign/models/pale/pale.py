@@ -83,6 +83,12 @@ class PALE(nn.Module):
             for iter in range(n_iters):
                 source_batch = self.source_train_nodes[iter*self.map_batchsize:(iter+1)*self.map_batchsize]
                 target_batch = [self.gt_train[x] for x in source_batch]
+
+                # DEBUG
+                print('source_batch:', source_batch)
+                print('target_batch:', target_batch)
+                exit()
+
                 source_batch = torch.LongTensor(source_batch)
                 target_batch = torch.LongTensor(target_batch)
                 if self.cuda:

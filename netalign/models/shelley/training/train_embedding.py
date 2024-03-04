@@ -4,8 +4,10 @@ import numpy as np
 import torch
 
 
-def train_pale(model, optimizer, edges=None, epochs=100, batch_size=512):
-    
+def train_pale(model, optimizer, edges=None, epochs=100, batch_size=512, device='cpu'):
+    """
+    Train function for PALE embedding model.
+    """
     n_iters = len(edges) // batch_size
     assert n_iters > 0, "`batch_size` is too large."
     if(len(edges) % batch_size > 0):
@@ -17,9 +19,10 @@ def train_pale(model, optimizer, edges=None, epochs=100, batch_size=512):
         start = time.time()     # Time evaluation
         model.train()
         print("Epoch {0}".format(epoch))
-        np.random.shuffle(edges)
+        shuffle_indices = torch.randperm(len(edges))
+        shuffled_edges = edges[shuffle_indices]
         for iter in range(n_iters):
-            batch_edges = torch.LongTensor(edges[iter*batch_size:(iter+1)*batch_size])
+            batch_edges = shuffled_edges[iter*batch_size:(iter+1)*batch_size].to(device)
             start_time = time.time()
             optimizer.zero_grad()
             loss, loss0, loss1 = model.loss(batch_edges[:, 0], batch_edges[:,1])
@@ -35,4 +38,4 @@ def train_pale(model, optimizer, edges=None, epochs=100, batch_size=512):
         
         epoch_time = time.time() - start     # Time evaluation
         
-    return model
+    return model.state_dict()
