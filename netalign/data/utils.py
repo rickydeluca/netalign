@@ -7,7 +7,7 @@ import networkx as nx
 import numpy as np
 import torch
 from networkx.readwrite import json_graph
-from torch_geometric.transforms import ToUndirected
+from torch_geometric.data import Data, Batch
 from torch_geometric.utils import (add_random_edge, contains_self_loops,
                                    dropout_edge, is_undirected,
                                    remove_self_loops)
@@ -94,14 +94,11 @@ def edgelist_to_graphsage(dir, seed=42):
         json.dump(id2idx, outfile)
 
 
-def edgelist_to_networkx(dir, seed=42):
+def edgelist_to_networkx(edgelist_path, verbose=False):
     """
     Read the edgelist file in the `dir` path, check if it
     is weighted and return the corresponding NetworkX graph.
     """
-
-    np.random.seed(seed)
-    edgelist_path = dir + "/edgelist/edgelist"
 
     # Check if the edge list is weighted or unweighted
     with open(edgelist_path, 'r') as file:
@@ -113,8 +110,9 @@ def edgelist_to_networkx(dir, seed=42):
     else:
         G = nx.read_edgelist(edgelist_path)
         nx.set_edge_attributes(G, float(1), name='weight') # Explicit weight value
-
-    print(network_info(G))
+    
+    if verbose:
+        print(network_info(G))
 
     return G
 
@@ -149,7 +147,7 @@ def get_edge_attribute_names(G):
         return None
 
 
-def edgelist_to_pyg(dir, seed=42):
+def edgelist_to_pyg(edgelist_path, verbose=False):
     """
     Converts a graph from an edge list in the specified directory to a PyTorch Geometric (PyG) graph.
 
@@ -161,7 +159,8 @@ def edgelist_to_pyg(dir, seed=42):
         torch_geometric.data.Data: PyTorch Geometric graph object representing the loaded graph.
     """
     # Load graph in NetworkX format
-    G = edgelist_to_networkx(dir, seed)
+    G = edgelist_to_networkx(edgelist_path, verbose=verbose)
+    id2idx = {id: idx for idx, id in enumerate(G.nodes())}
 
     # Get list of node and edge attributes
     node_attrs_list = get_node_attribute_names(G)
@@ -181,14 +180,14 @@ def edgelist_to_pyg(dir, seed=42):
         pyg_graph.edge_index, pyg_graph.edge_attr = remove_self_loops(pyg_graph.edge_index,
                                                                       pyg_graph.edge_attr)
 
-    return pyg_graph
+    return pyg_graph, id2idx
 
 
-def permute_graph(pyg_source):
+def permute_graph(pyg_source, mapping_type='dictionary'):
     """
-    Permute the indices of the pytorch geometric 
+    Permute the indices of the PyTorch Geometric 
     Data object `pyg_source` and return the permuted
-    copy.
+    copy along with the mapping of node indices.
     """
     # Clone graph
     pyg_target = pyg_source.clone()
@@ -196,21 +195,25 @@ def permute_graph(pyg_source):
     # Permute graph
     num_nodes = pyg_target.num_nodes
     edge_index = pyg_target.edge_index
-    # edge_attr = pyg_target.edge_attr
     x = pyg_target.x
 
     perm_indices = torch.randperm(num_nodes)
     perm_edge_index = perm_indices[edge_index]
-    # perm_edge_attr = edge_attr[perm_edge_index]
     perm_x = x[perm_indices] if x is not None else None
     
     pyg_target.edge_index = perm_edge_index
-    # pyg_target.edge_attr = perm_edge_attr
     pyg_target.x = perm_x
 
     # Get groundtruth mapping
-    mapping = {k: v.item() for k, v in enumerate(perm_indices)}
-
+    if mapping_type == 'matrix':
+        mapping = torch.zeros((num_nodes, num_nodes), dtype=torch.long)
+        for s, t in enumerate(perm_indices):
+            mapping[s, t] = 1
+    elif mapping_type == 'dictionary':
+        mapping = {k: v.item() for k, v in enumerate(perm_indices)}
+    else:
+        raise ValueError("Invalid output_type. Use 'matrix' or 'dictionary'.")
+    
     return pyg_target, mapping
 
 
@@ -306,7 +309,7 @@ def add_random_edges(pyg_graph, p=0.0):
     return pyg_graph
     
 
-def generate_target_graph(pyg_source, p_rm=0.0, p_add=0.0):
+def generate_target_graph(pyg_source, p_rm=0.0, p_add=0.0, mapping_type='dictionary', permute=True):
     """
     Generate the permuted and noised target graph obtained from
     the pytorch geometric Data object `pyg_source`.
@@ -321,7 +324,11 @@ def generate_target_graph(pyg_source, p_rm=0.0, p_add=0.0):
         mapping (dict):                             The groundtruth mapping of node indices.
     """
     # Get permuted clone
-    pyg_target, mapping = permute_graph(pyg_source)
+    if permute:
+        pyg_target, mapping = permute_graph(pyg_source, mapping_type=mapping_type)
+    else:
+        pyg_target = pyg_source.clone()
+        mapping = torch.eye(pyg_source.num_nodes)
 
     # Remove and/or add edges with probability
     pyg_target = remove_random_edges(pyg_target, p=p_rm)
@@ -395,3 +402,189 @@ def shuffle_and_split(dictionary, split_ratio, seed=42):
     split_dict_2 = {k: v for k, v in split_items_2}
 
     return split_dict_1, split_dict_2
+
+
+def shuffle_and_split_dict(dictionary, train_ratio, val_ratio=None, seed=42):
+    """
+    Shuffle the items in the dictionary and split it based on the given ratios.
+
+    Args:
+        dictionary (dict): The input dictionary to shuffle and split.
+        train_ratio (float): The ratio for the training set.
+        val_ratio (float, optional): The ratio for the validation set. If None, the remaining ratio is used for testing.
+        seed (int): The seed for the random number generator.
+
+    Returns:
+        dict, dict, dict: Three dictionaries representing the training, validation, and test datasets.
+    """
+    random.seed(seed)
+
+    # Convert dictionary items to a list of tuples
+    items = list(dictionary.items())
+
+    # Shuffle the items
+    random.shuffle(items)
+
+    # Calculate the split indices
+    train_index = int(len(items) * train_ratio)
+
+    if val_ratio is not None:
+        val_index = int(len(items) * (train_ratio + val_ratio))
+        val_items = items[train_index:val_index]
+    else:
+        val_index = train_index
+        val_items = []
+
+    # The remaining items are for testing
+    test_items = items[val_index:]
+
+    # Split the items into three lists
+    train_items = items[:train_index]
+
+    # Convert the split lists back to dictionaries
+    train_dict = {k: v for k, v in train_items}
+    val_dict = {k: v for k, v in val_items}
+    test_dict = {k: v for k, v in test_items}
+
+    return train_dict, val_dict, test_dict
+
+
+def read_dict(path, id2idx_s: dict, id2idx_t: dict):
+    with open(path, 'r') as file:
+        my_dict = {}
+        for line in file:
+            nodes = line.split()
+            src = id2idx_s[nodes[0]]
+            tgt = id2idx_t[nodes[1]]
+
+            # Add the key-value pair to the dictionary
+            my_dict[src] = tgt
+    
+    return my_dict
+
+
+def create_alignment_matrix(id2idx_s, id2idx_t):
+    num_nodes_s = len(id2idx_s)
+    num_nodes_t = len(id2idx_t)
+
+    alignment_matrix = torch.zeros(num_nodes_s, num_nodes_t, dtype=torch.bool)
+
+    for id_s, idx_s in id2idx_s.items():
+        idx_t = id2idx_t.get(id_s, None)
+        if idx_t is not None:
+            alignment_matrix[idx_s, idx_t] = 1
+
+    return alignment_matrix
+
+
+def generate_split_masks(groundtruth_matrix, train_ratio, val_ratio=0):
+    # Shuffle and split the indices
+    num_samples = groundtruth_matrix.size(0)
+    indices = torch.randperm(num_samples)
+
+    num_train = int(train_ratio * num_samples)
+    num_val = int(val_ratio * num_samples)
+
+    train_indices = indices[:num_train]
+    val_indices = indices[num_train:num_train+num_val]
+    test_indices = indices[num_train+num_val:]
+
+    # Create masks
+    train_mask = torch.zeros_like(groundtruth_matrix, dtype=torch.long)
+    val_mask = torch.zeros_like(groundtruth_matrix, dtype=torch.long)
+    test_mask = torch.zeros_like(groundtruth_matrix, dtype=torch.long)
+
+    train_mask[train_indices] = 1
+    val_mask[val_indices] = 1
+    test_mask[test_indices] = 1
+
+    return train_mask, val_mask, test_mask
+
+def split_groundtruth_matrix(groundtruth_matrix, train_ratio, val_ratio=0):
+    """
+    Splits the groundtruth matrix into train, validation, and test matrices 
+    based on the provided ratios.
+
+    Args:
+        groundtruth_matrix (torch.Tensor):
+            The original groundtruth matrix.
+
+        train_ratio (float):
+            The ratio of samples to be used for training.
+            
+        val_ratio (float, optional):
+            The ratio of samples to be used for validation. 
+            Defaults to 0.
+
+    Returns:
+        torch.Tensor: Masked train matrix.
+        torch.Tensor: Masked validation matrix.
+        torch.Tensor: Masked test matrix.
+    """
+    # Shuffle and split the indices
+    num_samples = groundtruth_matrix.size(0)
+    indices = torch.randperm(num_samples)
+
+    num_train = int(train_ratio * num_samples)
+    num_val = int(val_ratio * num_samples)
+
+    train_indices = indices[:num_train]
+    val_indices = indices[num_train:num_train+num_val]
+    test_indices = indices[num_train+num_val:]
+
+    # Create masks
+    train_mask = torch.zeros_like(groundtruth_matrix, dtype=torch.long)
+    val_mask = torch.zeros_like(groundtruth_matrix, dtype=torch.long)
+    test_mask = torch.zeros_like(groundtruth_matrix, dtype=torch.long)
+
+    train_mask[train_indices] = 1
+    val_mask[val_indices] = 1
+    test_mask[test_indices] = 1
+
+    # Apply masks
+    masked_train = groundtruth_matrix * train_mask
+    masked_val = groundtruth_matrix * val_mask
+    masked_test = groundtruth_matrix * test_mask
+
+    return masked_train, masked_val, masked_test
+
+def move_tensors_to_device(data, device):
+    """
+    Recursively move torch tensors in a dictionary, list, tuple, or PyTorch Geometric Data object to the specified device.
+
+    Parameters:
+        data (dict, list, tuple, torch_geometric.data.Data): Input data structure containing elements to be checked and moved.
+        device: Device to which tensors should be moved (e.g., 'cpu' or 'cuda').
+
+    Returns:
+        dict, list, tuple, or torch_geometric.data.Data: Updated data structure with tensors moved to the specified device.
+    """
+    if isinstance(data, dict):
+        return {key: move_tensors_to_device(value, device) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [move_tensors_to_device(item, device) for item in data]
+    elif isinstance(data, tuple):
+        return tuple(move_tensors_to_device(item, device) for item in data)
+    elif isinstance(data, Data) or isinstance(data, Batch):
+        data.x = data.x.to(device) if data.x is not None else None
+        data.edge_index = data.edge_index.to(device) if data.edge_index is not None else None
+        data.edge_attr = data.edge_attr.to(device) if data.edge_attr is not None else None
+        data.batch = data.batch.to(device) if data.batch is not None else None
+        data.ptr = data.ptr.to(device) if data.ptr is not None else None
+        return data
+    elif isinstance(data, torch.Tensor):
+        return data.to(device)
+    else:
+        return data
+    
+
+def dict_to_perm_mat(dict, num_source_nodes, num_target_nodes):
+    """
+    Given a dictionary with keys the nodes of the source network
+    and values the corresponding indices of the target network,
+    generates the permutation matrix.
+    """
+    perm_mat = torch.zeros((num_source_nodes, num_target_nodes))
+    for s, t in dict.items():
+        perm_mat[s, t] = 1
+    return perm_mat

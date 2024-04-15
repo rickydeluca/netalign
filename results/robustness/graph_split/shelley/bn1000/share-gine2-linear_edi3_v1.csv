@@ -1,0 +1,2 @@
+model,data,p_add,p_rm,train_size,val_size,test_size,best_val_acc,best_val_epoch,test_acc,training_time
+share-gine2-linear,edi3,0.0,0.2,14,3,3,0.13218390804597702,11,0.08045977011494253,4.133772373199463

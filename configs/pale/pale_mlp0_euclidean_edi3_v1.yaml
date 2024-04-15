@@ -1,0 +1,58 @@
+# Configuration version
+VERSION: 1
+TEST: robustness
+
+# Reproducibility and device
+SEED: 42
+DEVICE: cuda
+
+# Graph matching solver
+SOLVER: greedy
+
+# Output file name
+OUTFILE: edi3_mlp0_euclidean_lr0.01.csv
+
+# Dataset
+DATA:
+  NAME: edi3
+  PATH: data/edi3
+  SUBSET: ['edi3']
+  TRAIN_RATIO: 0.15
+  VAL_RATIO: 0.15
+  NUM_COPIES: 5
+  GT_MODE: dictionary
+  P_ADD:
+    - 0.0
+  P_RM:
+    - 0.2
+
+# Model & Training
+MODEL:
+  NAME: pale
+  
+  EMBEDDING:
+    NEG_SAMPLE_SIZE: 10 
+    EMBEDDING_DIM: 300
+    EMBEDDING_NAME: ''
+
+    OPTIMIZER: Adam
+    LR: 0.01
+    BATCH_SIZE: 512
+    EPOCHS: 1000
+
+  MAPPING:
+    MODE: mlp
+    NUM_HIDDEN: 0
+    ACTIVATE_FUNCTION: Null 
+    LOSS_FUNCTION: euclidean
+    TAU: 0.0
+    BETA: 0.0
+
+    OPTIMIZER: Adam
+    LR: 0.01
+    BATCH_SIZE_TRAIN: 8
+    BATCH_SIZE_VAL: 8
+    EPOCHS: 1000
+    PATIENCE: 20
+
+    VALIDATE: True

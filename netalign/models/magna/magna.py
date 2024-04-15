@@ -12,9 +12,9 @@ class MAGNA(nn.Module):
         self.num_generations = cfg.MODEL.NUM_GENERATIONS
         self.outfile = 'netalign/mapping/magna/tmp/out'
 
-    def align(self, pair_dict):
+    def forward(self, pair_dict):
         
-        # Generate edge lists from pyg graphs
+        # Generate edge lists from pyg graphs.
         source_graph = pair_dict['graph_pair'][0]
         target_graph = pair_dict['graph_pair'][1]
 
@@ -37,10 +37,10 @@ class MAGNA(nn.Module):
         # Run MAGNA++
         os.system(f"netalign/mapping/magna/app/magnapp_cli_linux64 -G {G_edgelist} -H {H_edgelist} -m {self.measure} -p {self.population_size} -n {self.num_generations} -o {self.outfile}")
 
-        # Read output alignment
+        # Read output alignment.
         align_dict, weighted = read_align_dict(self.outfile, reverse=reversed)
 
-        # Generate alignment matrix
+        # Generate alignment matrix.
         align_mat = np.zeros((source_graph.num_nodes, target_graph.num_nodes))
 
         if weighted:

@@ -1,0 +1,2 @@
+model,data,p_add,p_rm,train_size,val_size,test_size,best_val_acc,best_val_epoch,test_acc,training_time
+share-gine2-sgm,bn1000,0.0,0.2,70,15,15,0,0,0.011893736088769017,1508.8194057941437

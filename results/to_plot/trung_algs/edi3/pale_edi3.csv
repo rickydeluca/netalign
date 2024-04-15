@@ -1,0 +1,6 @@
+model,data,p_add,p_rm,dataset_size,avg_acc,std_dev,avg_time,avg_best_epoch
+pale,edi3,0,0.0,20,1.0,0,-1,-1
+pale,edi3,0,0.01,20,1.0000,0,-1,-1
+pale,edi3,0,0.05,20,0.9574,0,-1,-1
+pale,edi3,0,0.1,20,0.9574,0,-1,-1
+pale,edi3,0,0.2,20,0.6809,0,-1,-1

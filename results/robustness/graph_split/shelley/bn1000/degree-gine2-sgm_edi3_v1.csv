@@ -1,0 +1,2 @@
+model,data,p_add,p_rm,train_size,val_size,test_size,best_val_acc,best_val_epoch,test_acc,training_time
+degree-gine2-sgm,edi3,0.0,0.2,14,3,3,0,0,0.011494252873563218,3.8600707054138184

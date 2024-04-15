@@ -1,0 +1,3 @@
+model,data,p_add,p_rm,dataset_size,best_val_acc,best_epoch,test_acc,training_time
+share-gine2-sgm-beta0.1-tau1.0,bn1000,0.0,0.0,100,0,0,0.047094411372204374,103.209632396698
+share-gine2-sgm-beta0.1-tau1.0,bn1000,0.0,0.0,100,0,0,0.0012249525959580182,389.65746545791626

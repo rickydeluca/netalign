@@ -1,0 +1,6 @@
+model,data,p_add,p_rm,dataset_size,avg_acc,std_dev,avg_time,avg_best_epoch
+isorank,edi3,0,0.0,20,1.0,0,-1,-1
+isorank,edi3,0,0.01,20,0.4138,0,-1,-1
+isorank,edi3,0,0.05,20,0.1207,0,-1,-1
+isorank,edi3,0,0.1,20,0.1379,0,-1,-1
+isorank,edi3,0,0.2,20,0.0517,0,-1,-1

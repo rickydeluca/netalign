@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from netalign.models.sigma.function import predict
-from netalign.models.sigma.gnns import GIN
+from netalign.models.sigma.gnns import GIN, GIN2
 from netalign.models.sigma.mapping_model import SigmaMapping
 
 from torch_geometric.utils import to_dense_adj
@@ -30,9 +30,13 @@ class SIGMA(nn.Module):
 
     def align(self, pair_dict):
         # Construct model
-        f_update = GIN(in_channels=self.node_feature_dim,
-                       out_channels=self.embedding_dim,
-                       dim=self.embedding_dim).to(self.device)
+        # f_update = GIN(in_channels=self.node_feature_dim,
+        #                out_channels=self.embedding_dim,
+        #                dim=self.embedding_dim).to(self.device)
+        f_update = GIN2(in_channels=self.node_feature_dim,
+                         out_channels=self.embedding_dim,
+                         dim=self.embedding_dim,
+                         num_conv_layers=2).to(self.device)
         
         self.model = SigmaMapping(f_update,
                                   tau=self.tau,
@@ -59,10 +63,10 @@ class SIGMA(nn.Module):
             S, _ = self.model(p_s, cost_s, p_t, cost_t, self.T, miss_match_value=self.miss_match_value)
         
         self.S = S.detach().cpu().numpy()[:self.num_nodes, :self.num_nodes]
-        return self.S
+        return self.S, -1
     
     def pp(self, cost_in):
-        cost = to_dense_adj(cost_in).squeeze(0).numpy()
+        cost = to_dense_adj(cost_in).squeeze(0).cpu().numpy()
         p = cost.sum(-1, keepdims=True)
         p = p / p.sum()
         p = torch.FloatTensor(p).to(self.device)
