@@ -41,34 +41,21 @@ def mask_indices(tensor, row_indices, col_indices):
     mask[:, row_indices, :] = True
     mask[:, :, col_indices] = True
     mask[:, :, [i for i in range(M) if i not in col_indices]] = False  # Ensure only specified columns are kept
-    mask[:, [i for i in range(M) if i not in row_indices], :] = False # Ensure only specified rows are kept
+    mask[:, [i for i in range(M) if i not in row_indices], :] = False  # Ensure only specified rows are kept
     return tensor.masked_fill(~mask, 1e-20)
 
-if __name__ == '__main__':
-    device = torch.device('cuda:0')
 
-    # Toy similarity matrix
-    sim_mat = torch.randn((1,5,5), device=device)
+def log_sinkhorn_norm(log_alpha, n_iter):
+    for _ in range(n_iter):
+        log_alpha = log_alpha - torch.logsumexp(log_alpha, -1, keepdim=True)
+        log_alpha = log_alpha - torch.logsumexp(log_alpha, -2, keepdim=True)
+    return log_alpha.exp()
 
-    # Rescale to positive
-    min_value = torch.min(sim_mat)
-    sim_mat = sim_mat + torch.abs(min_value) + 1
-
-    # Extract submatrix
-    row_indices = [0, 1, 2]
-    col_indices = [0, 3, 4]
-    sim_mat = mask_indices(sim_mat, row_indices, col_indices)
-    sim_mat = torch.log(sim_mat)
-
-    # Sinkhorn normalization
-    rank_mat = log_sinkhorn(sim_mat, tau=1.0, n_iter=100)
-
-    print('sim_mat:\n', sim_mat)
-    print('-----------------'*5)
-    print('rank_mat:\n', rank_mat)
-
-    # Check if the result is doubly stochastic
-    print("Row sum:", torch.sum(rank_mat, dim=1))
-    print("Col sum:", torch.sum(rank_mat, dim=2))
-
-    # print("\n Top K rank values:", torch.topk(rank_mat, k=5, dim=2)[0])
+def gumbel_sinkhorn(log_alpha_in, tau, n_iter, n_sample, noise):
+    log_alpha = log_alpha_in.unsqueeze(0).repeat(n_sample, 1, 1)
+    if noise:
+        uniform_noise = torch.rand_like(log_alpha)
+        gumbel_noise = -torch.log(-torch.log(uniform_noise+1e-20)+1e-20)
+        log_alpha = (log_alpha + gumbel_noise) / tau
+    sampled_perm_mat = log_sinkhorn_norm(log_alpha, n_iter)
+    return sampled_perm_mat

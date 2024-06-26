@@ -2,16 +2,36 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from netalign.models.shelley.loss import (
-    ContrastiveLossWithAttention, EuclideanLoss, PermutationLoss,
-    RandomContrastiveLossWithAttention)
-from netalign.models.shelley.utils.lap_solvers import log_sinkhorn
-from netalign.models.shelley.utils.sm_solvers.stable_marriage import \
-    stable_marriage
+from netalign.models.shelley.loss import ContrastiveLossWithAttention, EuclideanLoss
+from netalign.models.shelley.utils.lap_solvers import log_sinkhorn, gumbel_sinkhorn
+from netalign.models.shelley.utils.rewards import reward_general
 
-def normalize_over_channels(x):
-    channel_norms = torch.norm(x, dim=1, keepdim=True)
-    return x / channel_norms
+
+def init_matching_module(f_update, cfg):
+    if cfg.MODEL == 'sgm':
+        model = StableGM(f_update=f_update,
+                         beta=cfg.BETA,
+                         n_sink_iters=cfg.N_SINK_ITERS,
+                         tau=cfg.TAU,
+                         mask=cfg.MASK)
+        
+    elif cfg.MODEL == 'sigma':
+        model = SIGMA(f_update=f_update,
+                      tau=cfg.TAU,
+                      n_sink_iter=cfg.N_SINK_ITERS,
+                      n_samples=cfg.N_SAMPLES,
+                      T=cfg.T,
+                      miss_match_value=cfg.MISS_MATCH_VALUE)
+        
+    elif cfg.MODEL == 'linear':
+        model = LinearMapping(f_update=f_update,
+                              embedding_dim=cfg.EMBEDDING_DIM)
+        
+    else:
+        raise ValueError(f"Invalid matching model: {cfg.MATCHING.MODEL}")
+    
+    return model
+
 
 class LinearMapping(nn.Module):
     def __init__(self, f_update, embedding_dim):
@@ -20,7 +40,7 @@ class LinearMapping(nn.Module):
         self.loss_fn = EuclideanLoss()
         self.maps = nn.Linear(embedding_dim, embedding_dim, bias=True)
 
-    def forward(self, graph_s, graph_t, src_ns=None, tgt_ns=None, gt_perm=None, train=False):
+    def forward(self, graph_s, graph_t, train=False, train_dict=None):
         # Generate embeddings
         h_s = self.f_update(graph_s.x, graph_s.edge_index, graph_s.edge_attr)
         h_t = self.f_update(graph_t.x, graph_t.edge_index, graph_t.edge_attr)
@@ -34,7 +54,7 @@ class LinearMapping(nn.Module):
 
         if train:
             # Map source to target
-            batch_idx, source_idx, target_idx = torch.nonzero(gt_perm, as_tuple=True)
+            batch_idx, source_idx, target_idx = torch.nonzero(train_dict['gt_perm'], as_tuple=True)
             source_feats = h_s[batch_idx, source_idx]
             target_feats = h_t[batch_idx, target_idx]
 
@@ -55,38 +75,6 @@ class LinearMapping(nn.Module):
             sim_mat = torch.matmul(h_s_map, h_t.transpose(1, 2))
 
             return sim_mat
-        
-        
-class CosineMapping(nn.Module):
-    def __init__(self, f_update, n_sink_iters=10, tau=1.0):
-        super(CosineMapping, self).__init__()
-        self.f_update = f_update
-        self.loss_fn = PermutationLoss()
-        self.n_sink_iters = n_sink_iters
-        self.tau = tau
-
-    def forward(self, graph_s, graph_t, src_ns=None, tgt_ns=None, gt_perm=None, train=False):
-        # Generate embeddings
-        h_s = self.f_update(graph_s.x, graph_s.edge_index, graph_s.edge_attr)
-        h_t = self.f_update(graph_t.x, graph_t.edge_index, graph_t.edge_attr)
-
-        if h_s.dim() == h_t.dim() == 2:
-            h_s = h_s.unsqueeze(0)
-            h_t = h_t.unsqueeze(0)
-
-        # Cosine similarity
-        h_s = h_s / h_s.norm(dim=-1, keepdim=True)
-        h_t = h_t / h_t.norm(dim=-1, keepdim=True)
-        sim_mat = torch.matmul(h_s, h_t.transpose(1, 2)).clamp(0, 1)
-        
-
-        if train:
-            rank_mat = log_sinkhorn(sim_mat, tau=self.tau, n_iter=self.n_sink_iters)
-            loss = self.loss_fn(rank_mat, gt_perm, src_ns, tgt_ns)
-            return sim_mat, loss
-        
-        else:
-            return sim_mat
 
 
 class StableGM(nn.Module):
@@ -99,7 +87,7 @@ class StableGM(nn.Module):
         self.tau = tau
         self.mask = mask
 
-    def forward(self, graph_s, graph_t, src_ns=None, tgt_ns=None, train=False, gt_perm=None):
+    def forward(self, graph_s, graph_t, train=False, train_dict=None):
         # Generate embeddings
         h_s = self.f_update(graph_s.x, graph_s.edge_index, graph_s.edge_attr)
         h_t = self.f_update(graph_t.x, graph_t.edge_index, graph_t.edge_attr)
@@ -118,12 +106,82 @@ class StableGM(nn.Module):
             rank_mat = log_sinkhorn(sim_mat, n_iter=self.n_sink_iters, tau=self.tau)
 
             # Hardness attention loss
-            loss = self.loss_fn(rank_mat, gt_perm.to(torch.float), src_ns, tgt_ns, self.beta, mask=self.mask)
+            loss = self.loss_fn(rank_mat,
+                                train_dict['gt_perm'], 
+                                train_dict['src_ns'], 
+                                train_dict['tgt_ns'],
+                                self.beta,
+                                mask=self.mask)
+            
             return sim_mat, loss
+        
         else:
             return sim_mat
+        
 
+class SIGMA(nn.Module):
+    def __init__(self, f_update, tau, n_sink_iter, n_samples, T, miss_match_value):
+        super(SIGMA, self).__init__()
+        self.f_update = f_update
+        self.tau = tau
+        self.n_sink_iter = n_sink_iter
+        self.n_samples = n_samples
+        self.T = T
+        self.miss_match_value = miss_match_value
 
+    def forward(self, graph_s, graph_t, train=False, train_dict=None):
+        loss = 0.0
+        loss_count = 0
+
+        best_reward = float('-inf')
+        best_logits = None
+
+        n_node_s = graph_s.x.shape[0]
+        n_node_t = graph_t.x.shape[0]
+
+        theta_previous = None
+        for _ in range(self.T):
+            # Adjust feature importance
+            if theta_previous is not None:
+                x_s_importance = theta_previous.sum(-1, keepdims=True)
+                x_t_importance = theta_previous.sum(-2, keepdims=True).transpose(-1, -2)
+            else:
+                x_s_importance = torch.ones([n_node_s, 1]).to(graph_s.x.device)
+                x_t_importance = torch.ones([n_node_t, 1]).to(graph_t.x.device)
+
+            # Propagate
+            h_s = self.f_update(graph_s.x, x_s_importance, graph_s.edge_index)
+            h_t = self.f_update(graph_t.x, x_t_importance, graph_t.edge_index)
+
+            # An alternative to the dot product similarity 
+            # is the cosine similarity. Scale 50.0 allows
+            # logits to be larger than the noise.
+            h_s = h_s / h_s.norm(dim=-1, keepdim=True)
+            h_t = h_t / h_t.norm(dim=-1, keepdim=True)
+            log_alpha = h_s @ h_t.transpose(-1, -2) * 50.0
+
+            log_alpha_ = F.pad(log_alpha, (0, n_node_s, 0, n_node_t), value=0.0)
+
+            theta_new = gumbel_sinkhorn(log_alpha_, self.tau, self.n_sink_iter, self.n_samples, noise=True)
+
+            r = reward_general(n_node_s, n_node_t,
+                               graph_s.edge_index, graph_t.edge_index,
+                               theta_new,
+                               miss_match_value=self.miss_match_value)
+
+            if best_reward < r.item():
+                best_reward = r.item()
+                loss = loss - r
+                loss_count += 1
+                theta_previous = theta_new[:, :n_node_s, :n_node_t].mean(0).detach().clone()
+                best_logits = log_alpha_.detach().clone()
+
+        if train:
+            return best_logits, loss / float(loss_count)
+        else:
+            return best_logits
+
+"""
 class RandomStableGM(nn.Module):
     def __init__(self, f_update, beta=0.1, n_sink_iters=10, tau=1.0):
         super(RandomStableGM, self).__init__()
@@ -216,3 +274,4 @@ class BatchStableGM(nn.Module):
             return sim_mat, loss
         else:
             return sim_mat
+"""

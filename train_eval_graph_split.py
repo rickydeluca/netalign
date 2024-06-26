@@ -9,7 +9,7 @@ import yaml
 from easydict import EasyDict as edict
 from torch_geometric.loader import DataLoader
 from torch.utils.data import random_split
-from netalign.models import MAGNA, PALE, SHELLEY_G
+from netalign.models import MAGNA, PALE
 from netalign.data.dataset import RobustnessDataset, TopologyDataset
 from netalign.data.dataloader import collate_fn
 

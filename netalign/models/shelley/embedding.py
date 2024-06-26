@@ -9,6 +9,34 @@ from torch_geometric.nn import GCNConv, GINEConv
 from torch_geometric.typing import SparseTensor
 
 
+def init_embedding_module(cfg):
+    if cfg.MODEL == 'gcn':
+        f_update = GCN(
+            in_channels=cfg.IN_CHANNELS,
+            hidden_channels=cfg.HIDDEN_CHANNELS,
+            out_channels=cfg.OUT_CHANNELS,
+            num_layers=cfg.NUM_LAYERS
+        )
+    elif cfg.MODEL == 'gine':
+        f_update = GINE(
+            in_channels=cfg.IN_CHANNELS,
+            dim=cfg.DIM,
+            out_channels=cfg.OUT_CHANNELS,
+            num_conv_layers=cfg.NUM_CONV_LAYERS
+        )
+    elif cfg.MODEL == 'gine2':
+        f_update = GINE2(
+            in_channels=cfg.IN_CHANNELS,
+            dim=cfg.DIM,
+            out_channels=cfg.OUT_CHANNELS,
+            num_conv_layers=cfg.NUM_CONV_LAYERS
+        )
+    else:
+        raise ValueError(f"Invalid embedding model: {cfg.EMBEDDING.MODEL}")
+    
+    return f_update
+
+
 class GINE(nn.Module):
     def __init__(self, in_channels, out_channels, dim, num_conv_layers=1, bias=True):
         super(GINE, self).__init__()

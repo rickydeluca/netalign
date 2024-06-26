@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from netalign.data.utils import move_tensors_to_device
-from netalign.evaluation.matcher import greedy_match
+from netalign.evaluation.matchers import greedy_match
 from netalign.evaluation.metrics import compute_accuracy
 from netalign.models.shelley.embedding import GCN, GINE, GINE2
 from netalign.models.shelley.feat_init import Degree, Share

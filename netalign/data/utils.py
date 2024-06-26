@@ -110,7 +110,7 @@ def edgelist_to_networkx(edgelist_path, verbose=False):
     else:
         G = nx.read_edgelist(edgelist_path)
         nx.set_edge_attributes(G, float(1), name='weight') # Explicit weight value
-    
+
     if verbose:
         print(network_info(G))
 
@@ -153,7 +153,7 @@ def edgelist_to_pyg(edgelist_path, verbose=False):
 
     Args:
         dir (str): The directory containing the edge list file.
-        seed (int, optional): Seed for random number generation. Default is 42.
+        verbose (bool, optional): If True print network infos. Default: False.
 
     Returns:
         torch_geometric.data.Data: PyTorch Geometric graph object representing the loaded graph.
@@ -165,7 +165,7 @@ def edgelist_to_pyg(edgelist_path, verbose=False):
     # Get list of node and edge attributes
     node_attrs_list = get_node_attribute_names(G)
     edge_attrs_list = get_edge_attribute_names(G)
-
+    
     # Convert to PyG
     pyg_graph = from_networkx(
         G,
@@ -173,17 +173,17 @@ def edgelist_to_pyg(edgelist_path, verbose=False):
         group_edge_attrs=edge_attrs_list
     )
 
+    # Add additional attributes
     pyg_graph.num_nodes = G.number_of_nodes()
 
     # Remove self loops
     if contains_self_loops(pyg_graph.edge_index):
         pyg_graph.edge_index, pyg_graph.edge_attr = remove_self_loops(pyg_graph.edge_index,
                                                                       pyg_graph.edge_attr)
-
     return pyg_graph, id2idx
 
 
-def permute_graph(pyg_source, mapping_type='dictionary'):
+def permute_graph(pyg_source):
     """
     Permute the indices of the PyTorch Geometric 
     Data object `pyg_source` and return the permuted
@@ -192,28 +192,14 @@ def permute_graph(pyg_source, mapping_type='dictionary'):
     # Clone graph
     pyg_target = pyg_source.clone()
 
-    # Permute graph
+    # Generate node mapping
     num_nodes = pyg_target.num_nodes
-    edge_index = pyg_target.edge_index
-    x = pyg_target.x
+    perm = torch.randperm(num_nodes)
+    mapping = {i: perm[i].item() for i in range(num_nodes)}
 
-    perm_indices = torch.randperm(num_nodes)
-    perm_edge_index = perm_indices[edge_index]
-    perm_x = x[perm_indices] if x is not None else None
-    
-    pyg_target.edge_index = perm_edge_index
-    pyg_target.x = perm_x
+    # Permute graph
+    pyg_target.edge_index = perm[pyg_target.edge_index]
 
-    # Get groundtruth mapping
-    if mapping_type == 'matrix':
-        mapping = torch.zeros((num_nodes, num_nodes), dtype=torch.long)
-        for s, t in enumerate(perm_indices):
-            mapping[s, t] = 1
-    elif mapping_type == 'dictionary':
-        mapping = {k: v.item() for k, v in enumerate(perm_indices)}
-    else:
-        raise ValueError("Invalid output_type. Use 'matrix' or 'dictionary'.")
-    
     return pyg_target, mapping
 
 
@@ -307,9 +293,46 @@ def add_random_edges(pyg_graph, p=0.0):
     pyg_graph.edge_attr = new_edge_attr
 
     return pyg_graph
+
+
+def permute_and_modify_graph(G, permute=True, p_add=0.0, p_rm=0.0):
+    # Create a copy of the original graph
+    G_permuted = G.copy()
+    
+    # Get the list of nodes and permute them
+    nodes = list(G.nodes())
+    permuted_nodes = nodes.copy()
+    if permute:
+        random.shuffle(permuted_nodes)
+    
+    # Create a mapping from original nodes to permuted nodes
+    mapping = {original: permuted for original, permuted in zip(nodes, permuted_nodes)}
+    
+    # Relabel the nodes of the graph according to the permuted mapping
+    G_permuted = nx.relabel_nodes(G_permuted, mapping)
+    
+    # Add dummy edges with probability p_add
+    num_edges_to_add = int(p_add * len(G.number_of_edges()))
+    
+    added_edges = set()
+    while len(added_edges) < num_edges_to_add:
+        u, v = random.sample(nodes, 2)
+        if not G_permuted.has_edge(u, v):
+            G_permuted.add_edge(u, v)
+            added_edges.add((u, v))
+    
+    # Remove edges with probability p_rm
+    edges_to_remove = []
+    for u, v in G_permuted.edges():
+        if random.random() < p_rm:
+            edges_to_remove.append((u, v))
+    
+    G_permuted.remove_edges_from(edges_to_remove)
+    
+    return G_permuted, mapping
     
 
-def generate_target_graph(pyg_source, p_rm=0.0, p_add=0.0, mapping_type='dictionary', permute=True):
+def generate_target_graph(pyg_source, p_rm=0.0, p_add=0.0, permute=True):
     """
     Generate the permuted and noised target graph obtained from
     the pytorch geometric Data object `pyg_source`.
@@ -323,9 +346,9 @@ def generate_target_graph(pyg_source, p_rm=0.0, p_add=0.0, mapping_type='diction
         pyg_target (torch_geometric.data.Data):     The radomly permuted and noised target graph.
         mapping (dict):                             The groundtruth mapping of node indices.
     """
-    # Get permuted clone
+    
     if permute:
-        pyg_target, mapping = permute_graph(pyg_source, mapping_type=mapping_type)
+        pyg_target, mapping = permute_graph(pyg_source)
     else:
         pyg_target = pyg_source.clone()
         mapping = torch.eye(pyg_source.num_nodes)
@@ -340,108 +363,34 @@ def generate_target_graph(pyg_source, p_rm=0.0, p_add=0.0, mapping_type='diction
                                                                         pyg_target.edge_attr)
 
     return pyg_target, mapping
-    
-
-def train_test_split(matrix, split_ratio=0.2):
-    """
-    Given a matrix of shape (N,M) representing the alignments
-    between the nodes of a source network with the nodes of
-    a target network, split those alignments in two set using
-    the `split_ratio` and return them as dictionaries.
-    """
-    
-    # Get alignment indices
-    gt_indices = torch.argwhere(matrix == 1)
-    num_alignments = gt_indices.shape[0]
-    assert gt_indices.shape == torch.Size([num_alignments, 2]) 
-    
-    # Shuffling
-    shuffled_idx = torch.randperm(num_alignments)
-    gt_indices = gt_indices[shuffled_idx]
-    
-    # Split indices
-    split_size = int(num_alignments * split_ratio)
-    split_sizes = [split_size, num_alignments - split_size]
-    train, test = torch.split(gt_indices, split_sizes, dim=0)
-
-    # Generate dictionaries
-    train_dict = {k.item(): v.item() for k, v in train}
-    test_dict = {k.item(): v.item() for k, v in test}
-    
-    return train_dict, test_dict
 
 
-def shuffle_and_split(dictionary, split_ratio, seed=42):
-    """
-    Shuffle the items in the dictionary and split it based on the given ratio.
-
-    Args:
-        dictionary (dict): The input dictionary to shuffle and split.
-        split_ratio (float): The ratio at which to split the dictionary.
-
-    Returns:
-        dict, dict: Two dictionaries representing the split datasets.
-    """
-    random.seed(seed)    
-
-    # Convert dictionary items to a list of tuples
-    items = list(dictionary.items())
-
-    # Shuffle the items
-    random.shuffle(items)
-
-    # Calculate the split index
-    split_index = int(len(items) * split_ratio)
-
-    # Split the items into two lists
-    split_items_1 = items[:split_index]
-    split_items_2 = items[split_index:]
-
-    # Convert the split lists back to dictionaries
-    split_dict_1 = {k: v for k, v in split_items_1}
-    split_dict_2 = {k: v for k, v in split_items_2}
-
-    return split_dict_1, split_dict_2
-
-
-def shuffle_and_split_dict(dictionary, train_ratio, val_ratio=None, seed=42):
+def shuffle_and_split_dict(dictionary, train_ratio=0.0, val_ratio=0.0):
     """
     Shuffle the items in the dictionary and split it based on the given ratios.
 
     Args:
         dictionary (dict): The input dictionary to shuffle and split.
-        train_ratio (float): The ratio for the training set.
-        val_ratio (float, optional): The ratio for the validation set. If None, the remaining ratio is used for testing.
-        seed (int): The seed for the random number generator.
+        train_ratio (float, optional): The ratio for the training set.
+        val_ratio (float, optional): The ratio for the validation set.
 
     Returns:
-        dict, dict, dict: Three dictionaries representing the training, validation, and test datasets.
+        dict, dict, dict: Three dictionaries representing the training, validation, and test groundtruths.
     """
-    random.seed(seed)
 
-    # Convert dictionary items to a list of tuples
+    # Shuffle dictionary items
     items = list(dictionary.items())
-
-    # Shuffle the items
     random.shuffle(items)
 
-    # Calculate the split indices
+    # Split dictionary
     train_index = int(len(items) * train_ratio)
+    val_index = int(len(items) * (train_ratio + val_ratio))
+    val_items = items[train_index:val_index]
 
-    if val_ratio is not None:
-        val_index = int(len(items) * (train_ratio + val_ratio))
-        val_items = items[train_index:val_index]
-    else:
-        val_index = train_index
-        val_items = []
-
-    # The remaining items are for testing
-    test_items = items[val_index:]
-
-    # Split the items into three lists
     train_items = items[:train_index]
-
-    # Convert the split lists back to dictionaries
+    val_items = items[train_index:val_index]
+    test_items = items[val_index:]
+    
     train_dict = {k: v for k, v in train_items}
     val_dict = {k: v for k, v in val_items}
     test_dict = {k: v for k, v in test_items}

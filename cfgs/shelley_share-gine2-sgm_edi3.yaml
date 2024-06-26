@@ -1,0 +1,27 @@
+NAME: shelley
+
+FEATS:
+  TYPE: share
+  FEATURE_DIM: 1
+
+EMBEDDING:
+  MODEL: gine2
+  IN_CHANNELS: 1
+  DIM: 256
+  OUT_CHANNELS: 256
+  NUM_CONV_LAYERS: 2
+
+MATCHING:
+  MODEL: sgm
+  N_SINK_ITERS: 10
+  BETA: 0.1
+  TAU: 1.0
+  MASK: True
+
+# Training
+TRAIN:
+  OPTIMIZER: adam
+  LR: 0.0001
+  L2NORM: 0.0
+  EPOCHS: 100
+  PATIENCE: 100

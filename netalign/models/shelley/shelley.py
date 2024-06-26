@@ -1,99 +1,32 @@
-import itertools
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
 
-from netalign.data.utils import move_tensors_to_device
-from netalign.evaluation.matcher import greedy_match
-from netalign.evaluation.metrics import compute_accuracy
-from netalign.models.shelley.embedding import GCN, GINE, GINE2
-from netalign.models.shelley.feat_init import Degree, Share
-from netalign.models.shelley.matching import (CosineMapping, LinearMapping,
-                                              RandomStableGM, StableGM, BatchStableGM)
+from netalign.data.utils import dict_to_perm_mat
+from netalign.models.shelley.embedding import init_embedding_module
+from netalign.models.shelley.feat_init import init_feat_module
+from netalign.models.shelley.matching import init_matching_module
 
-
+'''
 class SHELLEY_G(nn.Module):
     def __init__(self, cfg):
         """
         Initialize the Frankenstein's Monster.
         """
-        super(SHELLEY_G, self).__init__()
-
-        # MODEL PARAMETERS
-
-        # Init features
-        if cfg.INIT.FEATURES.lower() == 'degree':
-            self.f_init = Degree()
-        elif cfg.INIT.FEATURES.lower() == 'share':
-            self.f_init = Share(cfg.INIT.FEATURE_DIM)
-        else:
-            raise ValueError(f"Invalid features: {cfg.MODEL.FEATURES}.")
-
-        # Embedding model
-        if cfg.EMBEDDING.MODEL == 'gcn':
-            f_update = GCN(
-                in_channels=cfg.EMBEDDING.IN_CHANNELS,
-                hidden_channels=cfg.EMBEDDING.HIDDEN_CHANNELS,
-                out_channels=cfg.EMBEDDING.OUT_CHANNELS,
-                num_layers=cfg.EMBEDDING.NUM_LAYERS
-            )
-        elif cfg.EMBEDDING.MODEL == 'gine':
-            f_update = GINE(
-                in_channels=cfg.EMBEDDING.IN_CHANNELS,
-                dim=cfg.EMBEDDING.DIM,
-                out_channels=cfg.EMBEDDING.OUT_CHANNELS,
-                num_conv_layers=cfg.EMBEDDING.NUM_CONV_LAYERS
-            )
-        elif cfg.EMBEDDING.MODEL == 'gine2':
-            f_update = GINE2(
-                in_channels=cfg.EMBEDDING.IN_CHANNELS,
-                dim=cfg.EMBEDDING.DIM,
-                out_channels=cfg.EMBEDDING.OUT_CHANNELS,
-                num_conv_layers=cfg.EMBEDDING.NUM_CONV_LAYERS
-            )
-        else:
-            raise ValueError(f"Invalid embedding model: {cfg.EMBEDDING.MODEL}")
+        """
+        Initialize the Frankenstein's Monster.
+        """
+        super(SHELLEY, self).__init__()
         
-        # Matching model
-        if cfg.MATCHING.MODEL == 'sgm':
-            self.model = StableGM(
-                f_update=f_update,
-                beta=cfg.MATCHING.BETA,
-                n_sink_iters=cfg.MATCHING.N_SINK_ITERS,
-                tau=cfg.MATCHING.TAU,
-                mask=cfg.MATCHING.MASK
-            )
-        elif cfg.MATCHING.MODEL == 'bsgm':
-            self.model = BatchStableGM(
-                f_update=f_update,
-                beta=cfg.MATCHING.BETA,
-                n_sink_iters=cfg.MATCHING.N_SINK_ITERS,
-                tau=cfg.MATCHING.TAU
-            )
-        elif cfg.MATCHING.MODEL == 'rsgm':
-            self.model = RandomStableGM(
-                f_update=f_update,
-                beta=cfg.MATCHING.BETA,
-                n_sink_iters=cfg.MATCHING.N_SINK_ITERS,
-                tau=cfg.MATCHING.TAU
-            )
-        elif cfg.MATCHING.MODEL == 'linear':
-            self.model = LinearMapping(
-                f_update=f_update,
-                embedding_dim=cfg.MATCHING.EMBEDDING_DIM
-            )
-        elif cfg.MATCHING.MODEL == 'cosine':
-            self.model = CosineMapping(
-                f_update=f_update
-            )
-        else:
-            raise ValueError(f"Invalid matching model: {cfg.MATCHING.MODEL}")
-        
-        # TRAINING PARAMETERS
+        # Init modules
+        self.f_init = init_feat_module(cfg.FEATS)
+        self.f_update = init_embedding_module(cfg.EMBEDDING)
+        self.model = init_matching_module(self.f_update, cfg.MATCHING)
 
-        # Optimizer
+        # Configure training
+        self.epochs = cfg.TRAIN.EPOCHS
+        self.patience = cfg.TRAIN.PATIENCE
+
         if cfg.TRAIN.OPTIMIZER == 'adam':
             self.optimizer = optim.Adam(
                 self.model.parameters(),
@@ -107,13 +40,6 @@ class SHELLEY_G(nn.Module):
                 momentum=cfg.TRAIN.MOMENTUM)
         else:
             raise ValueError(f"Invalid optimizer: {cfg.TRAIN.OPTIMIZER}")
-        
-        self.epochs = cfg.TRAIN.EPOCHS
-        self.patience = cfg.TRAIN.PATIENCE
-        try:
-            self.batch_size = cfg.TRAIN.BATCH_SIZE  # Actually used only with `BatchedStableGM`
-        except:
-            self.batch_size = None
 
     def align(self, input_data, train=False, grad=True):
         """
@@ -264,7 +190,7 @@ class SHELLEY_G(nn.Module):
                 val_loss += loss.item() / n_batches
             
             return val_loss
-
+'''
 
 class SHELLEY(nn.Module):
     def __init__(self, cfg):
@@ -272,88 +198,16 @@ class SHELLEY(nn.Module):
         Initialize the Frankenstein's Monster.
         """
         super(SHELLEY, self).__init__()
-
-        # --- Model parameters ---
-
-        # Feature initialization
-        if cfg.INIT.FEATURES.lower() == 'degree':
-            self.f_init = Degree()
-        elif cfg.INIT.FEATURES.lower() == 'share':
-            self.f_init = Share(cfg.INIT.FEATURE_DIM)
-        else:
-            raise ValueError(f"Invalid features: {cfg.MODEL.FEATURES}.")
-
-        # Embedding model
-        if cfg.EMBEDDING.MODEL == 'gcn':
-            f_update = GCN(
-                in_channels=cfg.EMBEDDING.IN_CHANNELS,
-                hidden_channels=cfg.EMBEDDING.HIDDEN_CHANNELS,
-                out_channels=cfg.EMBEDDING.OUT_CHANNELS,
-                num_layers=cfg.EMBEDDING.NUM_LAYERS
-            )
-        elif cfg.EMBEDDING.MODEL == 'gine':
-            f_update = GINE(
-                in_channels=cfg.EMBEDDING.IN_CHANNELS,
-                dim=cfg.EMBEDDING.DIM,
-                out_channels=cfg.EMBEDDING.OUT_CHANNELS,
-                num_conv_layers=cfg.EMBEDDING.NUM_CONV_LAYERS
-            )
-        elif cfg.EMBEDDING.MODEL == 'gine2':
-            f_update = GINE2(
-                in_channels=cfg.EMBEDDING.IN_CHANNELS,
-                dim=cfg.EMBEDDING.DIM,
-                out_channels=cfg.EMBEDDING.OUT_CHANNELS,
-                num_conv_layers=cfg.EMBEDDING.NUM_CONV_LAYERS
-            )
-        else:
-            raise ValueError(f"Invalid embedding model: {cfg.EMBEDDING.MODEL}")
         
-        # Matching model
-        if cfg.MATCHING.MODEL == 'sgm':
-            self.model = StableGM(
-                f_update=f_update,
-                beta=cfg.MATCHING.BETA,
-                n_sink_iters=cfg.MATCHING.N_SINK_ITERS,
-                tau=cfg.MATCHING.TAU,
-                mask=cfg.MATCHING.MASK
-            )
-        elif cfg.MATCHING.MODEL == 'bsgm':
-            self.model = BatchStableGM(
-                f_update=f_update,
-                beta=cfg.MATCHING.BETA,
-                n_sink_iters=cfg.MATCHING.N_SINK_ITERS,
-                tau=cfg.MATCHING.TAU,
-                # top_p=cfg.MATCHING.TOP_P
-            )
-        elif cfg.MATCHING.MODEL == 'rsgm':
-            self.model = RandomStableGM(
-                f_update=f_update,
-                beta=cfg.MATCHING.BETA,
-                n_sink_iters=cfg.MATCHING.N_SINK_ITERS,
-                tau=cfg.MATCHING.TAU
-            )
-        elif cfg.MATCHING.MODEL == 'linear':
-            self.model = LinearMapping(
-                f_update=f_update,
-                embedding_dim=cfg.MATCHING.EMBEDDING_DIM
-            )
-        elif cfg.MATCHING.MODEL == 'cosine':
-            self.model = CosineMapping(
-                f_update=f_update
-            )
-        else:
-            raise ValueError(f"Invalid matching model: {cfg.MATCHING.MODEL}")
-        
-        # --- Training Parameters ---
+        # Init modules
+        self.f_init = init_feat_module(cfg.FEATS)
+        self.f_update = init_embedding_module(cfg.EMBEDDING)
+        self.model = init_matching_module(self.f_update, cfg.MATCHING)
 
+        # Configure training
         self.epochs = cfg.TRAIN.EPOCHS
         self.patience = cfg.TRAIN.PATIENCE
-        try:
-            self.batch_size = cfg.TRAIN.BATCH_SIZE
-        except:
-            self.batch_size = None
 
-        # Optimizer
         if cfg.TRAIN.OPTIMIZER == 'adam':
             self.optimizer = optim.Adam(
                 self.model.parameters(),
@@ -367,15 +221,16 @@ class SHELLEY(nn.Module):
                 momentum=cfg.TRAIN.MOMENTUM)
         else:
             raise ValueError(f"Invalid optimizer: {cfg.TRAIN.OPTIMIZER}")
-
-    def align(self, input_data):
+        
+    def align(self, pair_dict):
         # Read input
-        self.graph_s = input_data['graph_pair'][0]
-        self.graph_t = input_data['graph_pair'][1]
-        self.src_ns = torch.tensor([self.graph_s.num_nodes])
-        self.tgt_ns = torch.tensor([self.graph_t.num_nodes])
-        self.train_gt = input_data['train_gt']
-        self.val_gt = input_data['val_gt']
+        self.graph_s = pair_dict['graph_pair'][0]
+        self.graph_t = pair_dict['graph_pair'][1]
+        self.device = self.graph_s.edge_index.device
+        self.src_ns = torch.tensor([self.graph_s.num_nodes]).to(self.device)
+        self.tgt_ns = torch.tensor([self.graph_t.num_nodes]).to(self.device)
+        self.gt_train = dict_to_perm_mat(pair_dict['gt_train'], self.graph_s.num_nodes, self.graph_t.num_nodes).to(self.device).unsqueeze(0)
+        self.gt_val = dict_to_perm_mat(pair_dict['gt_val'], self.graph_s.num_nodes, self.graph_t.num_nodes).to(self.device).unsqueeze(0)
 
         # Init features
         self.init_features()
@@ -432,60 +287,26 @@ class SHELLEY(nn.Module):
     def train(self):
         self.model.train()
 
-        if isinstance(self.model, BatchStableGM): # Mini-batching on alignemnts
-            num_batches = (self.graph_s.num_nodes + self.batch_size - 1) // self.batch_size
-            _, src_indices, tgt_indices = self.train_gt.nonzero(as_tuple=True)
-            shuffling = torch.randperm(len(src_indices))
-            shuff_src_indices = src_indices[shuffling]
-            shuff_tgt_indices = tgt_indices[shuffling]
-                
-            # Mini-batching loop
-            train_loss = 0.0
-            for b_iter in range(num_batches):
-                src_train_batch = shuff_src_indices[b_iter * self.batch_size:(b_iter + 1) * self.batch_size]
-                tgt_train_batch = shuff_tgt_indices[b_iter * self.batch_size:(b_iter + 1) * self.batch_size]
+        # Forward
+        train_dict = {'gt_perm': self.gt_train, 'src_ns': self.src_ns, 'tgt_ns': self.tgt_ns}
+        _, train_loss = self.model(self.graph_s, self.graph_t, train=True, train_dict=train_dict)
 
-                _, batch_loss = self.model(
-                    self.graph_s,
-                    self.graph_t,
-                    train=True,
-                    batch_indices_s=src_train_batch,
-                    batch_indices_t=tgt_train_batch
-                )
+        # Backward
+        self.optimizer.zero_grad()
+        train_loss.backward()
+        self.optimizer.step()
 
-                self.optimizer.zero_grad()
-                batch_loss.backward()
-                self.optimizer.step()
-
-                train_loss += batch_loss / num_batches
-                
-                return train_loss
-        
-        else:
-            # Forward
-            _, train_loss = self.model(self.graph_s, self.graph_t, src_ns=self.src_ns, tgt_ns=self.tgt_ns, train=True, gt_perm=self.train_gt)
-
-            # Backward
-            self.optimizer.zero_grad()
-            train_loss.backward()
-            self.optimizer.step()
-
-            return train_loss
+        return train_loss
     
     @torch.no_grad()
     def evaluate(self):
         self.model.eval()
-        
-        if isinstance(self.model, BatchStableGM):
-            _, src_indices, tgt_indices = self.val_gt.nonzero(as_tuple=True)
-            _, val_loss = self.model(self.graph_s, self.graph_t, train=True, batch_indices_s=src_indices, batch_indices_t=tgt_indices)
-            return val_loss
-        else:
-            _, val_loss = self.model(self.graph_s, self.graph_t, src_ns=self.src_ns, tgt_ns=self.tgt_ns, train=True, gt_perm=self.val_gt)
-            return val_loss
+        train_dict = {'gt_perm': self.gt_val, 'src_ns': self.src_ns, 'tgt_ns': self.tgt_ns}
+        _, val_loss = self.model(self.graph_s, self.graph_t, train=True, train_dict=train_dict)
+        return val_loss
     
     @torch.no_grad()
     def get_alignment(self):
         self.model.eval()
-        S = self.model(self.graph_s, self.graph_t).detach().cpu().numpy()
+        S = self.model(self.graph_s, self.graph_t).squeeze(0).detach().cpu().numpy()
         return S

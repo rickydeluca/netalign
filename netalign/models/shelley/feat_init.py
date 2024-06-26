@@ -2,6 +2,16 @@ import torch
 import torch.nn as nn
 from torch_geometric.utils import degree
 
+def init_feat_module(cfg):
+    # Feature initialization
+    if cfg.TYPE.lower() == 'degree':
+        f_init = Degree()
+    elif cfg.TYPE.lower() == 'share':
+        f_init = Share(cfg.FEATURE_DIM)
+    else:
+        raise ValueError(f"Invalid features: {cfg.TYPE}.")
+    
+    return f_init
 
 class Degree(nn.Module):
     def __init__(self):

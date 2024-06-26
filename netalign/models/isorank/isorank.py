@@ -5,19 +5,19 @@ from torch_geometric.utils import to_dense_adj
 
 
 class IsoRank(nn.Module):
-    def __init__(self, H=None, alpha=0.82, maxiter=30, tol=1e-4):
+    def __init__(self, cfg):
         super(self, IsoRank).__init__()
-        self.alpha = alpha
-        self.maxiter = maxiter
-        self.H = H
-        self.tol = tol
+        self.alpha = cfg.ALPHA
+        self.maxiter = cfg.MAXITER
+        self.H = cfg.H
+        self.tol = cfg.TOL
 
-    def forward(self, input_dict):
-        # Read input dictionary.
-        self.graph_s = input_dict['graph_s']
-        self.graph_t = input_dict['graph_t']
+    def forward(self, pair_dict):
+        # Read input dictionary
+        self.graph_s = pair_dict['graph_pair'][0]
+        self.graph_t = pair_dict['graph_pair'][1]
 
-        # Get and normalize adjacency matrices.
+        # Get and normalize adjacency matrices
         A1 = to_dense_adj(self.graph_s.edge_index).cpu().numpy()
         A2 = to_dense_adj(self.graph_t.edge_index).cpu().numpy()
 
@@ -35,10 +35,10 @@ class IsoRank(nn.Module):
         W1 = d1*A1
         W2 = d2*A2
         
-        # Map target to source.
+        # Map target to source
         S = np.ones((n2,n1)) / (n1 * n2) 
 
-        # Perform IsoRank.
+        # Run IsoRank
         for iter in range(1, self.maxiter + 1):
             prev = S.flatten()
             if self.H is not None:
@@ -50,7 +50,6 @@ class IsoRank(nn.Module):
             if delta < self.tol:
                 break
         
-        # Return the predicted alignment matrix.
         self.S = S.T
         return self.S
 

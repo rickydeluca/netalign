@@ -39,7 +39,7 @@ class SigmaMapping(nn.Module):
             h_t = self.f_update(x_t, x_t_importance, edge_index_t)
 
             # An alternative to the dot product similarity is the cosine similarity.
-            # scale 50.0 allows logits to be larger than the noise.
+            # Scale 50.0 allows logits to be larger than the noise.
             h_s = h_s / h_s.norm(dim=-1, keepdim=True)
             h_t = h_t / h_t.norm(dim=-1, keepdim=True)
             log_alpha = h_s @ h_t.transpose(-1, -2) * 50.0
