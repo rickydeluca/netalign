@@ -1,0 +1,2 @@
+model,source,target,num_experiments,avg_acc,std_acc,avg_sim_prox,std_sim_prox,avg_time
+shelley_share-gine2-linear,age1,age2,10,0.04565217391304347,0.020508654634905657,0.0,0.0,1.1951329946517943

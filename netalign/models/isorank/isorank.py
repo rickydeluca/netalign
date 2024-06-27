@@ -6,20 +6,20 @@ from torch_geometric.utils import to_dense_adj
 
 class IsoRank(nn.Module):
     def __init__(self, cfg):
-        super(self, IsoRank).__init__()
+        super(IsoRank, self).__init__()
         self.alpha = cfg.ALPHA
         self.maxiter = cfg.MAXITER
         self.H = cfg.H
         self.tol = cfg.TOL
 
-    def forward(self, pair_dict):
+    def align(self, pair_dict):
         # Read input dictionary
         self.graph_s = pair_dict['graph_pair'][0]
         self.graph_t = pair_dict['graph_pair'][1]
 
         # Get and normalize adjacency matrices
-        A1 = to_dense_adj(self.graph_s.edge_index).cpu().numpy()
-        A2 = to_dense_adj(self.graph_t.edge_index).cpu().numpy()
+        A1 = to_dense_adj(self.graph_s.edge_index).squeeze().cpu().numpy()
+        A2 = to_dense_adj(self.graph_t.edge_index).squeeze().cpu().numpy()
 
         n1 = A1.shape[0]
         n2 = A2.shape[0]
@@ -51,7 +51,7 @@ class IsoRank(nn.Module):
                 break
         
         self.S = S.T
-        return self.S
+        return self.S, -1
 
 
 

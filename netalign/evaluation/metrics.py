@@ -130,8 +130,7 @@ def compute_sim_prox_score(sim_mat, gt_mat, pred_mat):
     """
     Computes the average absolute distance between the similarity
     scores of the true alignments and the similarity scores of the 
-    predicted alignments, considering only the rows and columns available
-    in the groundtruth matrix (non-zero rows and columns).
+    predicted alignments.
 
     Args:
         sim_mat (np.ndarray):
@@ -153,11 +152,13 @@ def compute_sim_prox_score(sim_mat, gt_mat, pred_mat):
     for i in range(gt_mat.shape[0]):
         # Find columns where there is a true alignment (1) in gt_mat
         true_indices = np.where(gt_mat[i] == 1)[0]
-        
+        sim_mean = np.mean(sim_mat[i])
+        sim_std = np.std(sim_mat[i])
+
         for j in true_indices:
-            # Compute absolute distances between sim_mat[i, j] and sim_mat[i, k] for k in pred_indices
+            # Compute Z-score distances between sim_mat[i, j] and sim_mat[i, k] for k in pred_indices
             pred_indices = np.where(pred_mat[i] == 1)[0]
-            abs_dists.extend(np.abs(sim_mat[i, j] - sim_mat[i, pred_indices]))
+            abs_dists.extend((np.abs(sim_mat[i, j] - sim_mat[i, pred_indices]) - sim_mean) / sim_std)
 
     # Compute the average absolute distance
     avg_dist = np.mean(abs_dists)

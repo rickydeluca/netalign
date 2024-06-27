@@ -1,18 +1,37 @@
+from netalign.models.bigalign import BigAlign
 from netalign.models.isorank import IsoRank
+from netalign.models.deeplink import DeepLink
+from netalign.models.final import FINAL
+from netalign.models.ione import IONE
 from netalign.models.magna import MAGNA
 from netalign.models.pale import PALE
 from netalign.models.shelley import SHELLEY
 from netalign.models.sigma import SIGMA
 
-__all__ = ['IsoRank', 'MAGNA', 'PALE', 'SHELLEY', 'SIGMA']
+__all__ = ['BigAlign', 'DeepLink', 'IsoRank', 'FINAL', 'MAGNA', 'PALE', 'SHELLEY', 'SIGMA']
 
 def init_align_model(cfg):
     """
     Init the alignment model wrt the configuration
     dictionary (`cfg`).
     """
-    
-    if cfg.NAME.lower() == 'magna':
+
+    if cfg.NAME.lower() == 'isorank':
+        model = IsoRank(cfg)
+        name = f'isorank'
+    elif cfg.NAME.lower() == 'bigalign':
+        model = BigAlign(cfg)
+        name = f'bigalign_l{cfg.LAMBDA}'
+    elif cfg.NAME.lower() == 'deeplink':
+        model = DeepLink(cfg)
+        name = f'deeplink'
+    elif cfg.NAME.lower() == 'final':
+        model = FINAL(cfg)
+        name = f'final'
+    elif cfg.NAME.lower() == 'ione':
+        model = IONE(cfg)
+        name = f'ione'
+    elif cfg.NAME.lower() == 'magna':
         model = MAGNA(cfg)
         name = f'magna_{cfg.MEASURE}-p{cfg.POPULATION_SIZE}-g{cfg.NUM_GENERATIONS}'
     elif cfg.NAME.lower() == 'pale':
@@ -22,6 +41,6 @@ def init_align_model(cfg):
         model = SHELLEY(cfg)
         name = f'shelley_{cfg.FEATS.TYPE}-{cfg.EMBEDDING.MODEL}-{cfg.MATCHING.MODEL}'
     else:
-        raise ValueError(f'Invalid model: {cfg.MODEL.NAME.lower()}')
+        raise ValueError(f'Invalid model: {cfg.NAME.lower()}')
     
     return model, name

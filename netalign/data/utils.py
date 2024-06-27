@@ -161,7 +161,7 @@ def edgelist_to_pyg(edgelist_path, verbose=False):
     # Load graph in NetworkX format
     G = edgelist_to_networkx(edgelist_path, verbose=verbose)
     id2idx = {id: idx for idx, id in enumerate(G.nodes())}
-
+    
     # Get list of node and edge attributes
     node_attrs_list = get_node_attribute_names(G)
     edge_attrs_list = get_edge_attribute_names(G)
@@ -537,3 +537,31 @@ def dict_to_perm_mat(dict, num_source_nodes, num_target_nodes):
     for s, t in dict.items():
         perm_mat[s, t] = 1
     return perm_mat
+
+
+def invert_dict(dict):
+    """
+    Swap key and values of a dictionary.
+    """
+    return {v: k for k, v in dict.items()}
+
+
+def replace_tensor_items(dict):
+    """
+    Given a dictionary, replace any monodimensional 
+    tensor keys or values with their corresponding items.
+    """    
+    new_dict = {}
+    
+    for key, value in dict.items():
+        # Check if the key is a 1D tensor
+        if isinstance(key, torch.Tensor) and key.ndimension() == 1 and key.size(0) == 1:
+            key = key.item()
+        
+        # Check if the value is a 1D tensor
+        if isinstance(value, torch.Tensor) and value.ndimension() == 1 and value.size(0) == 1:
+            value = value.item()
+        
+        new_dict[key] = value
+    
+    return new_dict
