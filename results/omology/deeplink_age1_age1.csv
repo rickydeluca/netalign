@@ -1,2 +1,0 @@
-model,source,target,num_experiments,avg_acc,std_acc,avg_sim_prox,std_sim_prox,avg_time
-deeplink,age1,age1,1,0.2391304347826087,0.0,-6.8923554,0.0,65.55445003509521

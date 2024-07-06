@@ -14,7 +14,7 @@ from netalign.data.dataset import RealDataset
 from netalign.data.utils import dict_to_perm_mat, move_tensors_to_device
 from netalign.evaluation.matchers import greedy_match
 from netalign.evaluation.metrics import (compute_accuracy,
-                                         compute_sim_prox_score)
+                                         compute_conf_score)
 from netalign.models import init_align_model
 
 
@@ -86,7 +86,7 @@ if __name__ == '__main__':
 
     res_file = f'{args.res_dir}/{model_name}_{source_net_name}_{target_net_name}.csv'
 
-    header = ['model', 'source', 'target', 'num_experiments', 'avg_acc', 'std_acc', 'avg_sim_prox', 'std_sim_prox', 'avg_time']
+    header = ['model', 'source', 'target', 'num_experiments', 'avg_acc', 'std_acc', 'avg_conf_score', 'std_conf_score', 'avg_time']
     with open(res_file, 'w') as rf:
         csv_writer = csv.DictWriter(rf, fieldnames=header)
         csv_writer.writeheader()
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     # Run experiments
     pair_dict = next(iter(dataloader))
     accs = []
-    sim_proxs = []
+    conf_scores = []
     comp_times = []
     best_acc = 0
     best_align_matrix = None
@@ -118,9 +118,9 @@ if __name__ == '__main__':
         acc = compute_accuracy(P, gt_test)
 
         # Compute similarity proximity
-        sim_prox = compute_sim_prox_score(S, gt_test, P)
+        conf_score = compute_conf_score(S)
 
-        print(f"\nExperiment: {exp_id}, Accuracy: {acc}, Similarity proximity: {sim_prox}")
+        print(f"\nExperiment: {exp_id}, Accuracy: {acc}, Confidence Score: {conf_score}")
 
         # Save best prediction
         if acc > best_acc:
@@ -128,18 +128,18 @@ if __name__ == '__main__':
             best_align_matrix = P
 
         accs.append(acc)
-        sim_proxs.append(sim_prox)
+        conf_scores.append(conf_score)
         comp_times.append(elapsed_time)
 
     # Average metrics
     avg_acc = np.mean(accs)
     std_acc = np.std(accs)
-    avg_sim_prox = np.mean(sim_proxs)
-    std_sim_prox = np.std(sim_proxs)
+    avg_conf_score = np.mean(conf_scores)
+    std_conf_score = np.std(conf_scores)
     avg_time = np.mean(comp_times)
 
     print(f"\n\nMean accuracy: {avg_acc}, Standard deviation: {std_acc}")
-    print(f"Mean similarity proximity: {avg_sim_prox}, Standard deviation: {std_sim_prox}")
+    print(f"Mean similarity proximity: {avg_conf_score}, Standard deviation: {std_conf_score}")
 
     # Write results
     out_data = [{
@@ -149,8 +149,8 @@ if __name__ == '__main__':
         'num_experiments': args.num_exps,
         'avg_acc': avg_acc,
         'std_acc': std_acc,
-        'avg_sim_prox': avg_sim_prox,
-        'std_sim_prox': std_sim_prox, 
+        'avg_conf_score': avg_conf_score,
+        'std_conf_score': std_conf_score, 
         'avg_time': avg_time
     }]
 
@@ -162,11 +162,14 @@ if __name__ == '__main__':
     if not os.path.exists(args.pred_dir):
         os.makedirs(args.pred_dir)
 
-    nonzero_rows, nonzero_cols = best_align_matrix.nonzero()
-    pred_file = f'{args.pred_dir}/{model_name}_{source_net_name}_{target_net_name}.txt'
+    try:
+        nonzero_rows, nonzero_cols = best_align_matrix.nonzero()
+        pred_file = f'{args.pred_dir}/{model_name}_{source_net_name}_{target_net_name}.txt'
 
-    with open(pred_file, 'w') as pf:
-        for src_idx, tgt_idx in zip(nonzero_rows, nonzero_cols):
-            src_id = pair_dict['idx2id'][0][src_idx]
-            tgt_id = pair_dict['idx2id'][1][tgt_idx]
-            pf.write(f"{src_id} {tgt_id}\n")
+        with open(pred_file, 'w') as pf:
+            for src_idx, tgt_idx in zip(nonzero_rows, nonzero_cols):
+                src_id = pair_dict['idx2id'][0][src_idx][0]
+                tgt_id = pair_dict['idx2id'][1][tgt_idx][0]
+                pf.write(f"{src_id} {tgt_id}\n")
+    except:
+        pass

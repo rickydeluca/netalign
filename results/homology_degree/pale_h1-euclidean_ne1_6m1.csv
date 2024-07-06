@@ -1,0 +1,2 @@
+model,source,target,num_experiments,avg_acc,std_acc,avg_conf_score,std_conf_score,avg_time
+pale_h1-euclidean,ne1,6m1,10,0.062460063897763575,0.00640772240259795,5.999986396335627e-05,1.9906300375432506e-06,77.08399012088776

@@ -1,2 +1,0 @@
-model,source,target,num_experiments,avg_acc,std_acc,avg_sim_prox,std_sim_prox,avg_time
-final,age1,age2,1,0.043478260869565216,0.0,-8.10607547375661,0.0,0.055609941482543945

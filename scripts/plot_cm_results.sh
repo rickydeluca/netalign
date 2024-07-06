@@ -1,0 +1,1 @@
+python -m plot.compare_algs --dir _toplot_/cm/

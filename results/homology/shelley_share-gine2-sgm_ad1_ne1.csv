@@ -1,0 +1,2 @@
+model,source,target,num_experiments,avg_acc,std_acc,avg_conf_score,std_conf_score,avg_time
+shelley_share-gine2-sgm,ad1,ne1,10,0.0015408320493066256,0.0011935233732534413,9.166677299155927e-06,1.831178615957463e-06,5.648431730270386

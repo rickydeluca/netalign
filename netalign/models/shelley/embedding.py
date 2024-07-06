@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Linear, Sequential, Tanh
-from torch_geometric.nn import GCNConv, GINEConv
+from torch_geometric.nn import GCNConv, GINEConv, MLP
 from torch_geometric.typing import SparseTensor
 
 
@@ -30,6 +30,13 @@ def init_embedding_module(cfg):
             dim=cfg.DIM,
             out_channels=cfg.OUT_CHANNELS,
             num_conv_layers=cfg.NUM_CONV_LAYERS
+        )
+    elif cfg.MODEL == 'mlp':
+        f_update = MLPEmb(
+            in_channels=cfg.IN_CHANNELS,
+            hidden_channels=cfg.HIDDEN_CHANNELS,
+            out_channels=cfg.OUT_CHANNELS,
+            num_layers=cfg.NUM_LAYERS
         )
     else:
         raise ValueError(f"Invalid embedding model: {cfg.EMBEDDING.MODEL}")
@@ -65,7 +72,10 @@ class GINE(nn.Module):
         # Final linar layer
         self.fc = Linear(dim, out_channels, bias=False)
 
-    def forward(self, x, edge_index, edge_attr):
+    def forward(self, x, edge_index, edge_attr, x_importance=None):
+        if x_importance is not None:
+            x = x * x_importance
+
         x = self.bn_in(x)
         xs = [x]
 
@@ -96,23 +106,25 @@ class GINE2(nn.Module):
         self.bn_layers = nn.ModuleList()
 
         # First conv layer
-        self.nn = Sequential(Linear(in_channels, dim, bias=bias), act)
-        self.conv_layers.append(GINEConv(self.nn, eps=eps, train_eps=train_eps, edge_dim=in_channels))
+        nn1 = Sequential(Linear(in_channels, dim, bias=bias), act)
+        self.conv_layers.append(GINEConv(nn1, eps=eps, train_eps=train_eps, edge_dim=in_channels))
         self.bn_layers.append(nn.BatchNorm1d(dim))
 
         # Remaning conv layers
         for _ in range(1, num_conv_layers):
-            self.nn = Sequential(Linear(dim, dim, bias=bias), act)
-            self.conv_layers.append(GINEConv(self.nn, eps=eps, train_eps=train_eps, edge_dim=in_channels))
+            nn_hid = Sequential(Linear(dim, dim, bias=bias), act)
+            self.conv_layers.append(GINEConv(nn_hid, eps=eps, train_eps=train_eps, edge_dim=in_channels))
             self.bn_layers.append(nn.BatchNorm1d(dim))
 
         # Final linar layer
         self.fc = Linear(dim, out_channels, bias=False)
 
-    def forward(self, x, edge_index, edge_attr):
+    def forward(self, x, edge_index, edge_attr, x_importance=None):
+        if x_importance is not None:
+            x = x * x_importance
+
         x = self.bn_in(x)
 
-        # Convolution
         for i in range(self.num_conv_layers):
             x = self.bn_layers[i](self.conv_layers[i](x, edge_index, edge_attr))
 
@@ -137,12 +149,33 @@ class GCN(nn.Module):
             self.conv_layers.append(GCNConv(hidden_channels, out_channels, normalize=normalize, bias=bias))
 
     def forward(self, x: Tensor, edge_index: Union[Tensor, SparseTensor],
-                edge_attr: Optional[Tensor] = None) -> Tensor:
+                edge_attr: Optional[Tensor] = None, x_importance=None) -> Tensor:
+        
+        if x_importance is not None:
+            x = x * x_importance
         
         for conv_layer in self.conv_layers:
             x = conv_layer(x, edge_index, edge_attr)
             x = F.relu(x)
 
         return x
-    
+
+class MLPEmb(nn.Module):
+    def __init__(self, in_channels, hidden_channels, out_channels, num_layers=1, bias=True):
+        super(MLPEmb, self).__init__()
+        self.mlp = MLP(in_channels=in_channels,
+                       hidden_channels=hidden_channels,
+                       out_channels=out_channels,
+                       num_layers=num_layers,
+                       bias=bias)
+
+    def forward(self, x: Tensor, edge_index: Union[Tensor, SparseTensor],
+                edge_attr: Optional[Tensor] = None, x_importance=None) -> Tensor:
+        
+        if x_importance is not None:
+            x = x * x_importance
+        
+        x = self.mlp(x)
+
+        return x
 

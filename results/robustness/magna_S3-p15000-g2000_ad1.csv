@@ -1,0 +1,2 @@
+model,data,size,p_add,p_rm,avg_acc,std_acc,avg_conf_score,std_conf_score,avg_time,avg_best_epoch
+magna_S3-p15000-g2000,ad1,3,0.0,0.0,0.07617728531855955,0.10675307526977779,0.0019013473065569997,0.0,1242.1998565991719,-1.0

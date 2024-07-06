@@ -1,5 +1,47 @@
 import numpy as np
+import torch
 
+def stable_marriage(ranking_matrix):
+    """
+    Compute a permutation matrix using the stable marriage algorithms
+    on a ranking matrix.
+    """
+    n = ranking_matrix.size(0)
+
+    # Convert ranking matrix to preference lists
+    men_preferences = ranking_matrix.argsort(dim=1, descending=True)
+    women_preferences = ranking_matrix.argsort(dim=0, descending=True)
+
+    # Gale-Shapley algorithm to find stable matching
+    free_men = list(range(n))
+    women_partner = [-1] * n
+    men_next_proposal = [0] * n
+    women_preferences_rank = torch.zeros((n, n), dtype=torch.int64)
+
+    for i in range(n):
+        for j in range(n):
+            women_preferences_rank[i, women_preferences[j, i]] = j
+
+    while free_men:
+        man = free_men.pop(0)
+        woman = men_preferences[man, men_next_proposal[man]]
+        men_next_proposal[man] += 1
+
+        if women_partner[woman] == -1:
+            women_partner[woman] = man
+        else:
+            current_partner = women_partner[woman]
+            if women_preferences_rank[woman, man] < women_preferences_rank[woman, current_partner]:
+                women_partner[woman] = man
+                free_men.append(current_partner)
+            else:
+                free_men.append(man)
+
+    permutation_matrix = torch.zeros((n, n))
+    for woman, man in enumerate(women_partner):
+        permutation_matrix[man, woman] = 1
+
+    return permutation_matrix
 
 def greedy_match(S):
     """

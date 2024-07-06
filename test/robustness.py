@@ -13,7 +13,7 @@ from torch_geometric.loader import DataLoader
 from netalign.data.dataset import SemiSyntheticDataset
 from netalign.data.utils import move_tensors_to_device, dict_to_perm_mat
 from netalign.evaluation.matchers import greedy_match
-from netalign.evaluation.metrics import compute_accuracy, compute_sim_prox_score
+from netalign.evaluation.metrics import compute_accuracy, compute_conf_score
 from netalign.models import init_align_model
 
 
@@ -26,7 +26,7 @@ def parse_args():
 
     parser.add_argument('-c', '--cfg', type=str, required=True, help="Path to the model configuration (YAML file).")
     parser.add_argument('-s', '--source_path', type=str, required=True, help="Path to the source network in edgelist format.")
-    parser.add_argument('--size', type=int, default=100, help="Number of random target network copies. Default: 100")
+    parser.add_argument('--size', type=int, default=10, help="Number of random target network copies. Default: 10")
     parser.add_argument('--train_ratio', type=float, default=0.2, help="Percentage of nodes/graphs to use as training set. Default: 0.2")
     parser.add_argument('--val_ratio', type=float, default=0.0, help="Percentage of nodes/graphs to use as validation set. Default: 0.0")
     parser.add_argument('--seed', type=int, default=None, help="Seed for reproducibility. Default: None")
@@ -69,7 +69,7 @@ if __name__ == '__main__':
 
     res_file = f'{args.res_dir}/{model_name}_{data_name}.csv'
 
-    header = ['model', 'data', 'size', 'p_add', 'p_rm', 'avg_acc', 'std_acc', 'avg_sim_prox', 'std_sim_prox', 'avg_time', 'avg_best_epoch']
+    header = ['model', 'data', 'size', 'p_add', 'p_rm', 'avg_acc', 'std_acc', 'avg_conf_score', 'std_conf_score', 'avg_time', 'avg_best_epoch']
     with open(res_file, 'w') as rf:
         csv_writer = csv.DictWriter(rf, fieldnames=header)
         csv_writer.writeheader()
@@ -97,7 +97,7 @@ if __name__ == '__main__':
             dataloader = DataLoader(dataset, shuffle=True)
 
             matching_accs = []
-            sim_proxs = []
+            conf_scores = []
             comp_times = []
             best_epochs = []
 
@@ -123,20 +123,20 @@ if __name__ == '__main__':
                 acc = compute_accuracy(P, gt_test)
 
                 # Compute similarity proximity score
-                sim_prox = compute_sim_prox_score(S, gt_test, P)
+                conf_score = compute_conf_score(S)
 
-                print(f"\n\nPair {pair_id+1}, Accuracy: {acc}, Similarity Proximity: {sim_prox}")
+                print(f"\n\nPair {pair_id+1}, Accuracy: {acc}, Confidence Score: {conf_score}")
 
                 matching_accs.append(acc)
-                sim_proxs.append(sim_prox)
+                conf_scores.append(conf_score)
                 best_epochs.append(best_epoch)
                 comp_times.append(elapsed_time)
 
             # Average metrics
             avg_acc = np.mean(matching_accs)
             std_acc = np.std(matching_accs)
-            avg_sim_prox = np.mean(sim_proxs)
-            std_sim_prox = np.std(sim_proxs)
+            avg_conf_score = np.mean(conf_scores)
+            std_conf_score = np.std(conf_scores)
             avg_time = np.mean(comp_times)
             avg_best_epoch = np.mean(best_epochs)
 
@@ -149,8 +149,8 @@ if __name__ == '__main__':
                 'p_rm': p_rm,
                 'avg_acc': avg_acc,
                 'std_acc': std_acc,
-                'avg_sim_prox': avg_sim_prox,
-                'std_sim_prox': std_sim_prox, 
+                'avg_conf_score': avg_conf_score,
+                'std_conf_score': std_conf_score, 
                 'avg_time': avg_time,
                 'avg_best_epoch': avg_best_epoch,
             }]

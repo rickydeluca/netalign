@@ -1,2 +1,0 @@
-model,source,target,num_experiments,avg_acc,std_acc,avg_sim_prox,std_sim_prox,avg_time
-shelley_share-gine2-sgm,age1,age4,10,0.03260869565217391,0.010869565217391304,0.29570264,0.06447268,2.0699686288833616

@@ -1,22 +1,23 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from tqdm import tqdm
 
-from netalign.data.utils import dict_to_perm_mat
+from netalign.data.utils import dict_to_perm_mat, move_tensors_to_device
+from netalign.evaluation.matchers import greedy_match
+from netalign.evaluation.metrics import compute_accuracy
 from netalign.models.shelley.embedding import init_embedding_module
 from netalign.models.shelley.feat_init import init_feat_module
 from netalign.models.shelley.matching import init_matching_module
 
-'''
+
 class SHELLEY_G(nn.Module):
     def __init__(self, cfg):
         """
         Initialize the Frankenstein's Monster.
         """
-        """
-        Initialize the Frankenstein's Monster.
-        """
-        super(SHELLEY, self).__init__()
+        super(SHELLEY_G, self).__init__()
         
         # Init modules
         self.f_init = init_feat_module(cfg.FEATS)
@@ -41,106 +42,88 @@ class SHELLEY_G(nn.Module):
         else:
             raise ValueError(f"Invalid optimizer: {cfg.TRAIN.OPTIMIZER}")
 
-    def align(self, input_data, train=False, grad=True):
+    def get_alignment(self, pair_dict, ret_loss=False):
         """
         Predict alignment between a graph pair.
         """
+        pair_dict = move_tensors_to_device(pair_dict, self.device)
+        
         # Read input
-        device = next(iter(self.model.parameters())).device
-        input_data = move_tensors_to_device(input_data, device=device)
-        graph_s = input_data['graph_pair'][0]
-        graph_t = input_data['graph_pair'][1]
-        gt_perm = input_data['gt_perm']
-        src_ns = torch.tensor([graph_s.num_nodes])
-        tgt_ns = torch.tensor([graph_t.num_nodes])
+        self.graph_s = pair_dict['graph_pair'][0]
+        self.graph_t = pair_dict['graph_pair'][1]
+        self.src_ns = torch.tensor([self.graph_s.num_nodes]).to(self.device)
+        self.tgt_ns = torch.tensor([self.graph_t.num_nodes]).to(self.device)
+        self.gt_full = dict_to_perm_mat(pair_dict['gt_full'], self.graph_s.num_nodes, self.graph_t.num_nodes).to(self.device).unsqueeze(0)
 
         # Init features
-        graph_s.x = self.f_init(graph_s).to(device)
-        graph_t.x = self.f_init(graph_t).to(device)
+        self.init_features()
 
         # Predict alignment
-        if train:
-            if isinstance(self.model, BatchStableGM):   # Batching on graph pair
-                # Prepare for mini-batching
-                num_batches = (graph_s.num_nodes + self.batch_size - 1) // self.batch_size
-                _, src_indices, tgt_indices = gt_perm.nonzero(as_tuple=True)
-                
-                if grad:
-                    shuffling = torch.randperm(len(src_indices))
-                else:
-                    shuffling = torch.arange(len(src_indices))    # Do not shuffle during validation
-                shuff_src_indices = src_indices[shuffling]
-                shuff_tgt_indices = tgt_indices[shuffling]
-                
-                # Mini-batching loop
-                loss = 0.0
-                for b_iter in range(num_batches):
-                    src_train_batch = shuff_src_indices[b_iter * self.batch_size:(b_iter + 1) * self.batch_size]
-                    tgt_train_batch = shuff_tgt_indices[b_iter * self.batch_size:(b_iter + 1) * self.batch_size]
-
-                    _, batch_loss = self.model(
-                        graph_s,
-                        graph_t,
-                        train=True,
-                        batch_indices_s=src_train_batch,
-                        batch_indices_t=tgt_train_batch
-                    )
-
-                    if grad:
-                        self.optimizer.zero_grad()
-                        batch_loss.backward()
-                        self.optimizer.step()
-
-                    loss += batch_loss / num_batches
-
-            else:   # No batching on graph pair     
-                _, loss = self.model(graph_s, graph_t, src_ns=src_ns, tgt_ns=tgt_ns, train=True, gt_perm=gt_perm)
-            
-            return loss
+        if ret_loss:
+            train_dict = {'gt_perm': self.gt_full, 'src_ns': self.src_ns, 'tgt_ns': self.tgt_ns}
+            S, loss = self.model(self.graph_s, self.graph_t, train=True, train_dict=train_dict)
+            return S, loss
         
         # Evaluation
         else:
-            S = self.model(graph_s, graph_t, train=False)
+            S = self.model(self.graph_s, self.graph_t, train=False)
             return S
+
+    def init_features(self):
+        self.graph_s.x = self.f_init(self.graph_s).to(self.device)
+        self.graph_t.x = self.f_init(self.graph_t).to(self.device)
+
+        # Extend dimension of edge attributes also
+        if self.graph_s.x.size(1) != self.graph_s.edge_attr.size(1):
+            self.graph_s.edge_attr = self.graph_s.edge_attr.repeat(1, self.graph_s.x.size(1))
         
-    def train_eval(self, train_loader, val_loader):
+        if self.graph_t.x.size(1) != self.graph_t.edge_attr.size(1):
+            self.graph_t.edge_attr = self.graph_t.edge_attr.repeat(1, self.graph_t.x.size(1))
+        
+    def train_eval(self, train_loader, val_loader=None, device=None, verbose=False):
         """
         Train and validate model.
         """
+        self.verbose = verbose
+        self.device = device
+        validate = True if val_loader is not None else False
         best_val_loss = float('inf')
         best_state_dict = {}
-        best_epoch = 0
+        best_epoch = -1
         patience_counter = 0
 
         for epoch in range(self.epochs):
+            print(f"Epoch: {epoch+1}/{self.epochs}")
+
             # Train
             train_loss = self.train(train_loader)
 
             # Eval
-            val_loss = self.evaluate(val_loader, use_acc=False)
-
-            print(f"Epoch: {epoch+1}/{self.epochs}, Train loss: {train_loss:.4f}, Val loss: {val_loss:.4f}")
-
-            # Update best model
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                best_state_dict = self.model.state_dict()
-                best_epoch = epoch+1
-                patience_counter = 0
-            else:
-                patience_counter += 1
-            
-            # Check for early stop
-            if patience_counter > self.patience:
-                print(f"Early stop triggered after {epoch+1} epochs!")
-                break
+            if validate:
+                val_loss = self.evaluate(val_loader)
                 
+                print(f"Epoch: {epoch+1}/{self.epochs}, Train loss: {train_loss:.4f}, Val loss: {val_loss:.4f}")
+                
+                # Update best model
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_state_dict = self.model.state_dict()
+                    best_epoch = epoch+1
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
+            
+                # Check for early stop
+                if patience_counter > self.patience:
+                    print(f"Early stop triggered after {epoch+1} epochs!")
+                    break
+            
+            else:
+                print(f"Epoch: {epoch+1}/{self.epochs}, Train loss: {train_loss:.4f}")
 
         # Load best state dict
-        if best_state_dict:
+        if validate:
             self.model.load_state_dict(best_state_dict)
-
-        return best_val_loss, best_epoch
 
     def train(self, train_loader):
         """
@@ -149,20 +132,19 @@ class SHELLEY_G(nn.Module):
         self.model.train()
         n_batches = len(train_loader)
         train_loss = 0
-        for pair_dict in train_loader:
+        for pair_dict in tqdm(train_loader, desc="Training"):
             
             # Foraward step
-            loss = self.align(pair_dict, train=True)
+            _, loss = self.get_alignment(pair_dict, ret_loss=True)
 
-            if not isinstance(self.model, BatchStableGM):   # Backward already performed if using `BatchStableGM`
-                # Backward step
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
+            # Backward step
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
 
-            train_loss += loss / n_batches
+            train_loss += loss
         
-        return train_loss
+        return train_loss / n_batches
     
     @torch.no_grad()
     def evaluate(self, eval_loader, use_acc=False):
@@ -172,25 +154,29 @@ class SHELLEY_G(nn.Module):
         self.model.eval()
         n_batches = len(eval_loader)
         if use_acc:
-            val_acc = 0
-            for pair_dict in eval_loader:
-                S = self.align(pair_dict, train=False)
-                batch_size = S.shape[0]
-                for i in range(batch_size):
-                    pred_mat = greedy_match(S[i].detach().cpu().numpy())
-                    eval_gt = pair_dict['gt_perm'][i].detach().cpu().numpy()
-                    val_acc += compute_accuracy(pred_mat, eval_gt) / batch_size / n_batches
-        
-            return val_acc 
+            eval_accs = []
+            for pair_dict in tqdm(eval_loader, desc='Testing'):
+                S = self.get_alignment(pair_dict, ret_loss=False).squeeze(0).detach().cpu().numpy()
+                P = greedy_match(S)
+                gt_test = dict_to_perm_mat(pair_dict['gt_full'], pair_dict['graph_pair'][0].num_nodes, pair_dict['graph_pair'][1].num_nodes).detach().cpu().numpy()
+                eval_acc = compute_accuracy(P, gt_test)
+                eval_accs.append(eval_acc)
+
+            return np.mean(eval_accs), np.std(eval_accs)
 
         else:
-            val_loss = 0
-            for pair_dict in eval_loader:
-                loss = self.align(pair_dict, train=True, grad=False)
-                val_loss += loss.item() / n_batches
+            eval_loss = 0
+            for pair_dict in tqdm(eval_loader, desc='Validation'):
+                _, loss = self.get_alignment(pair_dict, ret_loss=True)
+                eval_loss += loss.item()
             
-            return val_loss
-'''
+            return eval_loss / n_batches
+
+    def pprint(self, str):
+        if self.verbose:
+            print(str)
+
+
 
 class SHELLEY(nn.Module):
     def __init__(self, cfg):
@@ -222,7 +208,7 @@ class SHELLEY(nn.Module):
         else:
             raise ValueError(f"Invalid optimizer: {cfg.TRAIN.OPTIMIZER}")
         
-    def align(self, pair_dict):
+    def align(self, pair_dict, verbose=False):
         # Read input
         self.graph_s = pair_dict['graph_pair'][0]
         self.graph_t = pair_dict['graph_pair'][1]
@@ -231,6 +217,9 @@ class SHELLEY(nn.Module):
         self.tgt_ns = torch.tensor([self.graph_t.num_nodes]).to(self.device)
         self.gt_train = dict_to_perm_mat(pair_dict['gt_train'], self.graph_s.num_nodes, self.graph_t.num_nodes).to(self.device).unsqueeze(0)
         self.gt_val = dict_to_perm_mat(pair_dict['gt_val'], self.graph_s.num_nodes, self.graph_t.num_nodes).to(self.device).unsqueeze(0)
+        self.verbose = verbose
+        # Perform validation only if `gt_val` contains non-zero elements
+        self.validate = torch.any(self.gt_val != 0)
 
         # Init features
         self.init_features()
@@ -247,6 +236,13 @@ class SHELLEY(nn.Module):
         device = self.graph_s.edge_index.device
         self.graph_s.x = self.f_init(self.graph_s).to(device)
         self.graph_t.x = self.f_init(self.graph_t).to(device)
+
+        # Extend dimension of edge attributes also
+        if self.graph_s.x.size(1) != self.graph_s.edge_attr.size(1):
+            self.graph_s.edge_attr = self.graph_s.edge_attr.repeat(1, self.graph_s.x.size(1))
+        
+        if self.graph_t.x.size(1) != self.graph_t.edge_attr.size(1):
+            self.graph_t.edge_attr = self.graph_t.edge_attr.repeat(1, self.graph_t.x.size(1))
         
     def train_eval(self):
         best_val_loss = float('inf')
@@ -259,23 +255,27 @@ class SHELLEY(nn.Module):
             train_loss = self.train()
 
             # Eval
-            val_loss = self.evaluate()
+            if self.validate:
+                val_loss = self.evaluate()
 
-            # Save best model
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                best_val_epoch = epoch + 1
-                best_state_dict = self.model.state_dict()
-                patience_counter = 0
+                # Save best model
+                if val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_val_epoch = epoch + 1
+                    best_state_dict = self.model.state_dict()
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
+                
+                # Check for early stop
+                if patience_counter > self.patience:
+                    print(f"Early stop triggered after {epoch+1} epochs!")
+                    break
+
+                self.pprint(f"Epoch: {epoch+1}, Train loss: {train_loss}, Val loss: {val_loss}")
             else:
-                patience_counter += 1
+                self.pprint(f"Epoch: {epoch+1}, Train loss: {train_loss}")
             
-            # Check for early stop
-            if patience_counter > self.patience:
-                print(f"Early stop triggered after {epoch+1} epochs!")
-                break
-
-            print(f"Epoch: {epoch+1}, Train loss: {train_loss}, Val loss: {val_loss}")
 
         # Load best model
         if best_state_dict:
@@ -310,3 +310,17 @@ class SHELLEY(nn.Module):
         self.model.eval()
         S = self.model(self.graph_s, self.graph_t).squeeze(0).detach().cpu().numpy()
         return S
+    
+    @torch.no_grad()
+    def get_embeddings(self):
+        h_s = self.model.f_update(self.graph_s.x,
+                                  self.graph_s.edge_index,
+                                  edge_attr=self.graph_s.edge_attr).detach()
+        h_t = self.model.f_update(self.graph_t.x,
+                                  self.graph_t.edge_index,
+                                  edge_attr=self.graph_t.edge_attr).detach()
+        return h_s, h_t
+
+    def pprint(self, str):
+        if self.verbose:
+            print(str)

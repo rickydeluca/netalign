@@ -565,3 +565,47 @@ def replace_tensor_items(dict):
         new_dict[key] = value
     
     return new_dict
+
+
+def get_valid_matrix_mask(matrix):
+    """
+    If the input matrix contains rows and columns with all zeros,
+    produce the mask that keep only the rows/cols with at least
+    one non-zero element.
+    """
+    matrix = torch.tensor([[1,0,0],
+                           [0,1,0],
+                           [0,0,0]])
+    if len(matrix.shape) == 2:
+        matrix = matrix.unsqueeze(0)
+    elif len(matrix.shape) == 3:
+        pass
+    else:
+        raise ValueError("Invalid matrix shape.")
+    
+    # Find valid rows/cols
+    valid_rows = []
+    valid_cols = []
+    for i in range(matrix.shape[1]):
+        for j in range(matrix.shape[2]):
+            if matrix[0,i,j] != 0:
+                valid_rows.append(i)
+                valid_cols.append(j)
+
+    # Produce the mask
+    mask = torch.zeros_like(matrix)
+    for r in valid_rows:
+        mask[:,r,:] = 1
+    for c in valid_cols:
+        mask[:,:,c] = 1
+        
+    return mask
+
+def combine_dictionaries(dict_list):
+    """
+    Combine a list of dictionary in a single dictionary
+    """
+    combined_dict = {}
+    for d in dict_list:
+        combined_dict.update(d)
+    return combined_dict

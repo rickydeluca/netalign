@@ -5,10 +5,9 @@ from netalign.models.final import FINAL
 from netalign.models.ione import IONE
 from netalign.models.magna import MAGNA
 from netalign.models.pale import PALE
-from netalign.models.shelley import SHELLEY
-from netalign.models.sigma import SIGMA
+from netalign.models.shelley import SHELLEY, SHELLEY_G
 
-__all__ = ['BigAlign', 'DeepLink', 'IsoRank', 'FINAL', 'MAGNA', 'PALE', 'SHELLEY', 'SIGMA']
+__all__ = ['BigAlign', 'DeepLink', 'IsoRank', 'FINAL', 'MAGNA', 'PALE', 'SHELLEY', 'SHELLEY_G']
 
 def init_align_model(cfg):
     """
@@ -40,6 +39,9 @@ def init_align_model(cfg):
     elif cfg.NAME.lower() == 'shelley':
         model = SHELLEY(cfg)
         name = f'shelley_{cfg.FEATS.TYPE}-{cfg.EMBEDDING.MODEL}-{cfg.MATCHING.MODEL}'
+    elif cfg.NAME.lower() == 'shelleyg':
+        model = SHELLEY_G(cfg)
+        name = f'shelleyg_{cfg.FEATS.TYPE}-{cfg.EMBEDDING.MODEL}-{cfg.MATCHING.MODEL}'
     else:
         raise ValueError(f'Invalid model: {cfg.NAME.lower()}')
     

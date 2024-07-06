@@ -1,2 +1,0 @@
-model,source,target,num_experiments,avg_acc,std_acc,avg_sim_prox,std_sim_prox,avg_time
-pale_h1-euclidean,age1,age2,10,0.15652173913043477,0.028840215568307827,0.8262025,0.071079604,20.823750972747803

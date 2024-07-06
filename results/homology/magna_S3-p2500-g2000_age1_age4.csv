@@ -1,0 +1,2 @@
+model,source,target,num_experiments,avg_acc,std_acc,avg_conf_score,std_conf_score,avg_time
+magna_S3-p2500-g2000,age1,age4,3,0.021739130434782608,0.01774992567234187,0.029263151940285115,0.0,46.358840545018516

@@ -14,10 +14,9 @@ class RealDataset(Dataset):
                  source_path: str,
                  target_path: str,
                  gt_path: Optional[str] = None,
-                 gt_mode: Optional[str] = 'omology',
+                 gt_mode: Optional[str] = 'homology',
                  train_ratio: Optional[float] = 0.2,
                  val_ratio: Optional[float] = 0.0,
-                 seed_nodes: Optional[str] = None,
                  seed: Optional[int] = None):
         
         super(RealDataset, self).__init__()
@@ -25,6 +24,7 @@ class RealDataset(Dataset):
         self.val_ratio = val_ratio
         self.seed = seed
         self.size = 1       # Only one pair in real datasets
+        self.gt_mode = gt_mode
         
         # Load PyG graphs
         self.source_pyg, self.source_id2idx = utils.edgelist_to_pyg(source_path)
@@ -36,8 +36,8 @@ class RealDataset(Dataset):
         if gt_path is not None:
             self.gt_dict = self._read_dict(gt_path)
         else:
-            if gt_mode == 'omology':
-                self.gt_dict = self._generate_omology_gt()
+            if gt_mode == 'homology':
+                self.gt_dict = self._generate_homology_gt()
             else:
                 self.gt_dict = None
 
@@ -61,10 +61,10 @@ class RealDataset(Dataset):
 
         return gt_dict
     
-    def _generate_omology_gt(self):
+    def _generate_homology_gt(self):
         """
         Generate a groundtruth dictionary using
-        the node names omology.
+        the node names homology.
         """
         gt_dict = {}
         for s_id, s_idx in self.source_id2idx.items():
@@ -73,31 +73,21 @@ class RealDataset(Dataset):
 
         return gt_dict
     
-    def _read_seed_nodes(self, seed_path):
+    def _generate_homology_degree_gt(self, top_p=0.2):
         """
-        Read the known-to-be-aligned seed nodes from file.
-
-        Args:
-            seed_path (str):        Path to seed nodes file.
-
-            source_id2idx (dict):   Dictionary with mapping from node names 
-                                    to node indices in source network.
-
-            target_id2idx (dict):   Dictionary with mapping from node names
-                                    to node indices in target network.
+        Generate groundtruth dictionary by homology, but
+        keep in the train dictionary only the nodes with
+        an high degree value (`top_p`).
         """
-        seed_dict = {}
-        with open(seed_path, 'r') as file:
-            for line in file:
-                key, value = line.strip().split(maxsplit=1)
-                seed_dict[self.source_id2idx[key]] = self.target_id2idx[value]
-        return seed_dict
-    
+        train_dict = self._homology_seed_nodes(p=top_p, use_degree=True)
+        full_dict = self._generate_homology_gt()
+        test_dict = {k: v for k, v in full_dict.items() if k not in train_dict}
+        return train_dict, test_dict
 
-    def _omology_seed_nodes(self, p=0.2, use_degree=False):
+    def _homology_seed_nodes(self, p=0.2, use_degree=False):
         """
         Generate a mapping between the nodes of source
-        and target networks using the name omology of the nodes.
+        and target networks using the name homology of the nodes.
         Select only the `p` percentage of this mapping as 
         seed nodes for trainable algorithms.
         """
@@ -116,23 +106,29 @@ class RealDataset(Dataset):
             target_indices = target_degrees.argsort(descending=True)
 
             # Keep top-p nodes
-            source_indices = source_indices[:num_seeds]
-            target_indices = target_indices[:num_seeds]
+            # source_indices = source_indices[:num_seeds]
+            # target_indices = target_indices[:num_seeds]
 
             seed_dict = {}
-
+            num_added_seeds = 0
             for s_idx in source_indices:
                 s_id = self.source_idx2id[s_idx.item()]
-                # Check if both source and target have the node
+
+                # Check if both source and target have this node
                 if s_id in self.target_id2idx.keys():
                     t_idx = self.target_id2idx[s_id]
 
                     # Check if the target node is in top degree tier
-                    if t_idx in target_indices:
-                        seed_dict[s_idx.item()] = t_idx
+                    # if t_idx in target_indices:
+                    #     seed_dict[s_idx.item()] = t_idx
+                    seed_dict[s_idx.item()] = t_idx
+                    num_added_seeds += 1
+                
+                if num_added_seeds >= num_seeds:
+                    break
 
         else:
-            # Generate global omology mapping of the node indices
+            # Generate global homology mapping of the node indices
             source_indices = []
             target_indices = []
             for s_id, s_idx in self.source_id2idx.items():
@@ -197,11 +193,21 @@ class RealDataset(Dataset):
         """
 
         # Split groundtruth in train, val and test
-        gt_train, gt_val, gt_test = utils.shuffle_and_split_dict(
-            self.gt_dict,
-            train_ratio=self.train_ratio,
-            val_ratio=self.val_ratio
-        )
+        if self.gt_mode == 'homology_degree':
+            gt_train, gt_val_test = self._generate_homology_degree_gt(top_p=self.train_ratio)
+            _, gt_val, gt_test = utils.shuffle_and_split_dict(
+                gt_val_test,
+                train_ratio=0.0,
+                val_ratio=self.val_ratio
+            )
+            self.gt_dict = utils.combine_dictionaries([gt_train, gt_val, gt_test])
+
+        else:
+            gt_train, gt_val, gt_test = utils.shuffle_and_split_dict(
+                self.gt_dict,
+                train_ratio=self.train_ratio,
+                val_ratio=self.val_ratio
+            )
 
         # Assemble pair informations in a dictionary
         pair_dict = edict()
@@ -209,6 +215,7 @@ class RealDataset(Dataset):
             'graph_pair': [self.source_pyg, self.target_pyg],
             'id2idx': [self.source_id2idx, self.target_id2idx],
             'idx2id': [self.source_idx2id, self.target_idx2id],
+            'gt_full': self.gt_dict,
             'gt_train': gt_train,
             'gt_val': gt_val,
             'gt_test': gt_test
@@ -278,6 +285,7 @@ class SemiSyntheticDataset(Dataset):
             'graph_pair': [self.source_graph, self.target_graph],
             'id2idx': [self.source_id2idx, self.target_id2idx],
             'idx2id': [self.source_idx2id, self.target_idx2id],
+            'gt_full': gt_dict,
             'gt_train': gt_train,
             'gt_val': gt_val,
             'gt_test': gt_test

@@ -1,2 +1,0 @@
-model,source,target,num_experiments,avg_acc,std_acc,avg_sim_prox,std_sim_prox,avg_time
-bigalign_l0.01,age1,age1,10,0.9347826086956521,1.1102230246251565e-16,-2.1234993620879345,4.440892098500626e-16,0.012421035766601562

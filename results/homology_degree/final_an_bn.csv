@@ -1,0 +1,2 @@
+model,source,target,num_experiments,avg_acc,std_acc,avg_conf_score,std_conf_score,avg_time
+final,an,bn,10,0.07407407407407407,0.0,9.071556004610928e-06,0.0,0.023116636276245116

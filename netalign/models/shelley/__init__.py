@@ -1,3 +1,3 @@
-from netalign.models.shelley.shelley import SHELLEY
+from netalign.models.shelley.shelley import SHELLEY, SHELLEY_G
 
-__all__ = ['SHELLEY']
+__all__ = ['SHELLEY', 'SHELLEY_G']

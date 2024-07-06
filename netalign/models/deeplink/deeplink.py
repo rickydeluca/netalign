@@ -3,6 +3,7 @@ import time
 import numpy as np
 import torch
 import torch.nn as nn
+from tqdm import tqdm
 
 from netalign.data.utils import replace_tensor_items
 from netalign.models.deeplink.embedding_model import DeepWalk
@@ -45,8 +46,9 @@ class DeepLink(nn.Module):
     def get_target_embedding(self):
         return self.target_embedding
 
-    def align(self, pair_dict):
+    def align(self, pair_dict, verbose=False):
         # Read input
+        self.verbose = verbose
         self.source_graph = pair_dict['graph_pair'][0]
         self.target_graph = pair_dict['graph_pair'][1]
         self.source_id2idx = replace_tensor_items(pair_dict['id2idx'][0])
@@ -114,10 +116,11 @@ class DeepLink(nn.Module):
             train_dict = self.full_gt
 
 
-        for epoch in range(1, n_epochs+1):
+        for epoch in tqdm(range(1, n_epochs+1), desc='Mapping'):
             start = time.time()     # Time evaluation
 
-            print("Epoch {0}".format(epoch))
+            if self.verbose:
+                print("Epoch {0}".format(epoch))
             np.random.shuffle(source_train_nodes)
             for iter in range(n_iters):
                 source_batch = source_train_nodes[iter*batch_size:(iter+1)*batch_size]
@@ -135,7 +138,7 @@ class DeepLink(nn.Module):
                     loss = model.supervised_loss(source_batch, target_batch, alpha=self.alpha, k=self.top_k)
                 loss.backward()
                 optimizer.step()
-                if total_steps % print_every == 0 and total_steps > 0:
+                if total_steps % print_every == 0 and total_steps > 0 and self.verbose:
                     print("Iter:", '%03d' %iter,
                           "train_loss=", "{:.5f}".format(loss.item()),
                           )
@@ -178,3 +181,7 @@ class DeepLink(nn.Module):
         if self.cuda:
             self.source_embedding = self.source_embedding.cuda()
             self.target_embedding = self.target_embedding.cuda()
+
+    @torch.no_grad()
+    def get_embeddings(self):
+        return self.source_after_mapping.detach(), self.target_embedding

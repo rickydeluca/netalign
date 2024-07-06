@@ -4,6 +4,7 @@ import torch
 from scipy.spatial.distance import cosine
 from torch_geometric.data import Data
 from torch_geometric.utils import degree, to_networkx
+import torch.nn.functional as F
 
 
 def compute_accuracy(pred, gt):
@@ -126,7 +127,7 @@ def compute_scores_for_graphs(data_list):
     return graph_scores
 
 
-def compute_sim_prox_score(sim_mat, gt_mat, pred_mat):
+def compute_fpsd_score(sim_mat, gt_mat, pred_mat):
     """
     Computes the average absolute distance between the similarity
     scores of the true alignments and the similarity scores of the 
@@ -166,7 +167,81 @@ def compute_sim_prox_score(sim_mat, gt_mat, pred_mat):
     return avg_dist
 
 
+
+def compute_fpsd(sim_mat, gt_perm, pred_perm):
+    """
+    Calculate the False Positive Similarity Difference (FPSD) Metric.
+
+    This metric computes the percentage difference between the average similarity scores
+    of false positive alignments and the average similarity scores of true positive alignments.
+
+    Args:
+        sim_mat (list or ndarray): Similarity matrix where each cell (i,j) represents a similarity measure
+                                   between the embedding of node_i from the first network and node_j from the second network.
+        gt_perm (list or ndarray): Ground truth permutation matrix indicating the real alignments between nodes of the two networks.
+        pred_perm (list or ndarray): Predicted permutation matrix indicating the predicted alignments by the model.
+
+    Returns:
+        float: The percentage difference in similarity scores between false positives and true positives.
+    """
+    # Ensure the matrices are in torch tensors
+    sim_mat = torch.tensor(sim_mat, dtype=torch.float32)
+    gt_perm = torch.tensor(gt_perm, dtype=torch.float32)
+    pred_perm = torch.tensor(pred_perm, dtype=torch.float32)
+    
+    # Identify true positives and false positives
+    true_positives = gt_perm * pred_perm
+    false_positives = (1 - gt_perm) * pred_perm
+    
+    # Extract similarity scores for true positives and false positives
+    true_positive_scores = sim_mat[true_positives == 1]
+    false_positive_scores = sim_mat[false_positives == 1]
+    
+    # Ensure there are no empty tensors
+    if true_positive_scores.numel() == 0 or false_positive_scores.numel() == 0:
+        raise ValueError("There are no true positives or false positives in the provided matrices.")
+    
+    # Calculate the average similarity score of true positives
+    avg_true_positive_score = true_positive_scores.mean().item()
+    
+    # Calculate the average similarity score of false positives
+    avg_false_positive_score = false_positive_scores.mean().item()
+    
+    # Calculate the percentage difference
+    percentage_difference = abs(avg_true_positive_score - avg_false_positive_score) / avg_true_positive_score
+    
+    return percentage_difference
+
+def compute_conf_score(sim_mat):
+    """
+    Compute the average confidence of the model 
+    as the average distance between the higher
+    similarity score in each row and the other scores.
+    """
+
+    distances = []
+    for _row in sim_mat:
+        # Compute percentages
+        row = torch.from_numpy(_row).to(torch.float)
+        row_perc = F.softmax(row, dim=0)
+        
+        # Find the top 2 values and their indices
+        values, indices = torch.topk(row_perc, k=2)
+        
+        # Extract max and second_max values
+        max_val = values[0]
+        second_max_val = values[1]
+        
+        # Compute the absolute difference
+        difference = max_val - second_max_val
+
+        distances.append(difference.item())
+
+    return np.mean(distances)
+
+
 if __name__ == '__main__':
+
     # Test structural and positional scores:
     node_features_1 = torch.tensor([[1, 2], [2, 3], [3, 4], [4, 5]], dtype=torch.float)
     edge_index_1 = torch.tensor([[0, 1, 2, 3, 0], [1, 0, 3, 2, 2]], dtype=torch.long)
@@ -186,5 +261,10 @@ if __name__ == '__main__':
     gt_mat = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
     pred_mat = np.array([[1, 0, 0], [0, 1, 0], [0, 1, 0]])
 
-    sim_prox = compute_sim_prox_score(sim_mat, gt_mat, pred_mat)
-    print("Similarity Proximity Score:", sim_prox)
+    fpsd = compute_fpsd(sim_mat, gt_mat, pred_mat)
+    print("Similarity Proximity Score:", fpsd)
+
+    # Test confidence score
+    sim_mat = np.array([[1, -1, -1], [1, 2, 3], [1, 10, 100]])
+    cs = compute_conf_score(sim_mat)
+    print("Confidence Score:", cs)

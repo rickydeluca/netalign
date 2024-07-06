@@ -1,2 +1,0 @@
-model,source,target,num_experiments,avg_acc,std_acc,avg_sim_prox,std_sim_prox,avg_time
-ione,age1,age1,1,0.7608695652173914,0.0,-0.37995233286448754,0.0,2.193938732147217

@@ -1,0 +1,2 @@
+model,source,target,num_experiments,avg_acc,std_acc,avg_conf_score,std_conf_score,avg_time
+magna_S3-p15000-g2000,ne1,6m1,3,0.0,0.0,0.0019013473065569997,0.0,371.06547411282855

@@ -1,2 +1,0 @@
-model,source,target,num_experiments,avg_acc,std_acc,avg_sim_prox,std_sim_prox,avg_time
-isorank,age1,age2,1,0.043478260869565216,0.0,-2.9057787036681675,0.0,0.038227081298828125
