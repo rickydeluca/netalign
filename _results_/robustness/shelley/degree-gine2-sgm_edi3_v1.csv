@@ -1,2 +1,0 @@
-model,data,p_add,p_rm,dataset_size,avg_acc,std_dev,avg_time,avg_best_epoch
-shelley_degree-gine2-sgm-beta0.1-tau1.0,edi3,0.0,0.05,20,0.03214285714285714,0.03859420256535078,0.5002793192863464,1.35

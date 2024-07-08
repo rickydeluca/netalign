@@ -1,3 +1,0 @@
-model,data,p_add,p_rm,dataset_size,best_val_acc,best_epoch,test_acc,training_time
-share-gcn-sgm-beta0.1-tau1.0,bn1000,0.0,0.0,100,0.9604252865603422,1,0.0015919486686870041,494.7741813659668
-share-gcn-sgm-beta0.1-tau1.0,bn1000,0.0,0.0,100,0.9605908662794554,2,0.001518147526472075,508.88015627861023

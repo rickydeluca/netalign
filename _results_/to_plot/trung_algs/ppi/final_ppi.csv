@@ -1,6 +1,0 @@
-model,data,p_add,p_rm,dataset_size,avg_acc,std_dev,avg_time,avg_best_epoch
-final,ppi,0,0.0,20,0.0005,0,-1,-1
-final,ppi,0,0.01,20,0.0000,0,-1,-1
-final,ppi,0,0.05,20,0.0017,0,-1,-1
-final,ppi,0,0.1,20,0.0011,0,-1,-1
-final,ppi,0,0.2,20,0.9281,0,-1,-1

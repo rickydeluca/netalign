@@ -1,6 +1,0 @@
-model,data,p_add,p_rm,dataset_size,avg_acc,std_dev,avg_time,avg_best_epoch
-ione,edi3,0,0.0,20,0.6383,0,-1,-1
-ione,edi3,0,0.01,20,0.6809,0,-1,-1
-ione,edi3,0,0.05,20,0.6596,0,-1,-1
-ione,edi3,0,0.1,20,0.5957,0,-1,-1
-ione,edi3,0,0.2,20,0.4894,0,-1,-1

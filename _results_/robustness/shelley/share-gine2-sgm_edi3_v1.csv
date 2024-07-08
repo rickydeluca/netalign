@@ -1,2 +1,0 @@
-model,data,p_add,p_rm,dataset_size,avg_acc,std_dev,avg_time,avg_best_epoch
-shelley_share-gine2-sgm-beta0.1-tau1.0,edi3,0.0,0.05,20,0.5047619047619049,0.2839828489599352,2.008780038356781,85.95

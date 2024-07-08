@@ -1,2 +1,0 @@
-model,data,p_add,p_rm,dataset_size,avg_acc,std_dev,avg_time,avg_best_epoch
-sigma,edi3,0.0,0.2,5,0.11489361702127658,0.031843892653395246,8.137737607955932,-1.0

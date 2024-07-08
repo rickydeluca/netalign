@@ -1,2 +1,0 @@
-model,data,p_add,p_rm,train_size,val_size,test_size,best_val_acc,best_val_epoch,test_acc,training_time
-share-gine-sgm,edi3,0.0,0.2,14,3,3,0.32758620689655177,113,0.29310344827586204,23.858254432678223

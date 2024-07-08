@@ -1,2 +1,0 @@
-model,data,p_add,p_rm,train_size,val_size,test_size,best_val_acc,best_val_epoch,test_acc,training_time
-share-gine2-cosine,edi3,0.0,0.2,14,3,3,0.5057471264367815,63,0.5574712643678161,12.911120414733887
